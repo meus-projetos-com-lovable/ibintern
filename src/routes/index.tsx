@@ -22,7 +22,8 @@ function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      navigate({ to: user.role === "aluno" ? "/dashboard/aluno" : "/inbox/avaliador" });
+      const dest = user.role === "aluno" ? "/dashboard/aluno" : user.role === "coordenador" ? "/inbox/coordenador" : "/inbox/avaliador";
+      navigate({ to: dest });
     }
   }, [user, navigate]);
 
