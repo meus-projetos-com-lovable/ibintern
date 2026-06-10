@@ -9,38 +9,75 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AlunosRouteImport } from './routes/alunos'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InboxAvaliadorRouteImport } from './routes/inbox.avaliador'
+import { Route as DashboardAlunoRouteImport } from './routes/dashboard.aluno'
 
+const AlunosRoute = AlunosRouteImport.update({
+  id: '/alunos',
+  path: '/alunos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InboxAvaliadorRoute = InboxAvaliadorRouteImport.update({
+  id: '/inbox/avaliador',
+  path: '/inbox/avaliador',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardAlunoRoute = DashboardAlunoRouteImport.update({
+  id: '/dashboard/aluno',
+  path: '/dashboard/aluno',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alunos': typeof AlunosRoute
+  '/dashboard/aluno': typeof DashboardAlunoRoute
+  '/inbox/avaliador': typeof InboxAvaliadorRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alunos': typeof AlunosRoute
+  '/dashboard/aluno': typeof DashboardAlunoRoute
+  '/inbox/avaliador': typeof InboxAvaliadorRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/alunos': typeof AlunosRoute
+  '/dashboard/aluno': typeof DashboardAlunoRoute
+  '/inbox/avaliador': typeof InboxAvaliadorRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/alunos' | '/dashboard/aluno' | '/inbox/avaliador'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/alunos' | '/dashboard/aluno' | '/inbox/avaliador'
+  id: '__root__' | '/' | '/alunos' | '/dashboard/aluno' | '/inbox/avaliador'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlunosRoute: typeof AlunosRoute
+  DashboardAlunoRoute: typeof DashboardAlunoRoute
+  InboxAvaliadorRoute: typeof InboxAvaliadorRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/alunos': {
+      id: '/alunos'
+      path: '/alunos'
+      fullPath: '/alunos'
+      preLoaderRoute: typeof AlunosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +85,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inbox/avaliador': {
+      id: '/inbox/avaliador'
+      path: '/inbox/avaliador'
+      fullPath: '/inbox/avaliador'
+      preLoaderRoute: typeof InboxAvaliadorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/aluno': {
+      id: '/dashboard/aluno'
+      path: '/dashboard/aluno'
+      fullPath: '/dashboard/aluno'
+      preLoaderRoute: typeof DashboardAlunoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlunosRoute: AlunosRoute,
+  DashboardAlunoRoute: DashboardAlunoRoute,
+  InboxAvaliadorRoute: InboxAvaliadorRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
