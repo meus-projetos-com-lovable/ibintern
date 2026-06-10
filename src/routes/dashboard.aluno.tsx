@@ -127,16 +127,18 @@ function DashboardAluno() {
                 {ativo.contrato && <StatusBadge status={ativo.contrato.status} />}
               </div>
               {ativo.contrato && (
-                <div className="flex items-center gap-3 rounded-md border bg-card-alt/40 p-3">
+                <Link
+                  to="/dashboard/aluno/contrato/$processoId"
+                  params={{ processoId: ativo.id }}
+                  className="group flex items-center gap-3 rounded-md border bg-card-alt/40 p-3 hover:bg-accent/40 hover:border-primary/40 transition"
+                >
                   <FileText className="h-5 w-5 text-primary" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{ativo.contrato.nome_arquivo}</p>
-                    <p className="text-xs text-muted-foreground">Enviado em {ativo.contrato.data_envio}</p>
+                    <p className="text-xs text-muted-foreground">Enviado em {ativo.contrato.data_envio} · clique para ver detalhes</p>
                   </div>
-                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => toast.success("Download iniciado")}>
-                    <Download className="h-3.5 w-3.5" /> Baixar
-                  </Button>
-                </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                </Link>
               )}
               {ativo.contrato?.status === "Reprovado" && ativo.contrato.observacoes && (
                 <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
