@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { UploadCloud, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,7 +16,7 @@ export function DocumentDropzone({
 }) {
   const [file, setFile] = useState<File | null>(null);
 
-  const onDrop = useCallback((accepted: File[], rejections: { file: File; errors: { code: string }[] }[]) => {
+  const onDrop = useCallback((accepted: File[], rejections: FileRejection[]) => {
     if (rejections.length) {
       const r = rejections[0];
       if (r.errors.some((e) => e.code === "file-too-large")) {
