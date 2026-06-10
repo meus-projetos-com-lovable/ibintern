@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AlunosRouteImport } from './routes/alunos'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InboxCoordenadorRouteImport } from './routes/inbox.coordenador'
 import { Route as InboxAvaliadorRouteImport } from './routes/inbox.avaliador'
 import { Route as DashboardAlunoRouteImport } from './routes/dashboard.aluno'
 
@@ -22,6 +23,11 @@ const AlunosRoute = AlunosRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxCoordenadorRoute = InboxCoordenadorRouteImport.update({
+  id: '/inbox/coordenador',
+  path: '/inbox/coordenador',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InboxAvaliadorRoute = InboxAvaliadorRouteImport.update({
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/alunos': typeof AlunosRoute
   '/dashboard/aluno': typeof DashboardAlunoRoute
   '/inbox/avaliador': typeof InboxAvaliadorRoute
+  '/inbox/coordenador': typeof InboxCoordenadorRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
   '/dashboard/aluno': typeof DashboardAlunoRoute
   '/inbox/avaliador': typeof InboxAvaliadorRoute
+  '/inbox/coordenador': typeof InboxCoordenadorRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,30 @@ export interface FileRoutesById {
   '/alunos': typeof AlunosRoute
   '/dashboard/aluno': typeof DashboardAlunoRoute
   '/inbox/avaliador': typeof InboxAvaliadorRoute
+  '/inbox/coordenador': typeof InboxCoordenadorRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/alunos' | '/dashboard/aluno' | '/inbox/avaliador'
+  fullPaths:
+    | '/'
+    | '/alunos'
+    | '/dashboard/aluno'
+    | '/inbox/avaliador'
+    | '/inbox/coordenador'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/alunos' | '/dashboard/aluno' | '/inbox/avaliador'
-  id: '__root__' | '/' | '/alunos' | '/dashboard/aluno' | '/inbox/avaliador'
+  to:
+    | '/'
+    | '/alunos'
+    | '/dashboard/aluno'
+    | '/inbox/avaliador'
+    | '/inbox/coordenador'
+  id:
+    | '__root__'
+    | '/'
+    | '/alunos'
+    | '/dashboard/aluno'
+    | '/inbox/avaliador'
+    | '/inbox/coordenador'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +92,7 @@ export interface RootRouteChildren {
   AlunosRoute: typeof AlunosRoute
   DashboardAlunoRoute: typeof DashboardAlunoRoute
   InboxAvaliadorRoute: typeof InboxAvaliadorRoute
+  InboxCoordenadorRoute: typeof InboxCoordenadorRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -83,6 +109,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox/coordenador': {
+      id: '/inbox/coordenador'
+      path: '/inbox/coordenador'
+      fullPath: '/inbox/coordenador'
+      preLoaderRoute: typeof InboxCoordenadorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inbox/avaliador': {
@@ -107,7 +140,18 @@ const rootRouteChildren: RootRouteChildren = {
   AlunosRoute: AlunosRoute,
   DashboardAlunoRoute: DashboardAlunoRoute,
   InboxAvaliadorRoute: InboxAvaliadorRoute,
+  InboxCoordenadorRoute: InboxCoordenadorRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
