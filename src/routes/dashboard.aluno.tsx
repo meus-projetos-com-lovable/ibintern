@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DocumentDropzone } from "@/components/document-dropzone";
-import { CheckCircle2, Circle, Clock, FileText, Download, AlertTriangle, Plus, Send } from "lucide-react";
+import { CheckCircle2, Circle, Clock, FileText, AlertTriangle, Plus, Send, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/aluno")({
