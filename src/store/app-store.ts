@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { MOCK_ALUNOS, MOCK_PROCESSOS, type Aluno, type Processo, type ProcessoStatus } from "@/lib/mock-data";
 
-export type Role = "aluno" | "secretaria";
+export type Role = "aluno" | "secretaria" | "coordenador";
 
 export interface AuthUser {
   id: string;
@@ -33,11 +33,12 @@ export const useAppStore = create<AppState>()(
       processos: MOCK_PROCESSOS,
 
       login: (role) => {
-        const user: AuthUser =
-          role === "aluno"
-            ? { id: "a1", nome: "Bernardo Lima", email: "bernardo@al.ibmec.edu.br", role, unidade: "Ibmec RJ" }
-            : { id: "s1", nome: "Ana Coordenadora", email: "ana.coord@ibmec.edu.br", role, unidade: "Ibmec RJ" };
-        set({ user });
+        const profiles: Record<Role, AuthUser> = {
+          aluno: { id: "a1", nome: "Bernardo Lima", email: "bernardo@al.ibmec.edu.br", role: "aluno", unidade: "Ibmec RJ" },
+          secretaria: { id: "s1", nome: "Ana Martins", email: "ana.martins@ibmec.edu.br", role: "secretaria", unidade: "Ibmec RJ" },
+          coordenador: { id: "c1", nome: "Prof. Rafael Coordenação", email: "rafael.coord@ibmec.edu.br", role: "coordenador", unidade: "Ibmec RJ" },
+        };
+        set({ user: profiles[role] });
       },
 
       logout: () => set({ user: null }),

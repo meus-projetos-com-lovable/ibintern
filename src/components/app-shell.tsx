@@ -4,11 +4,12 @@ import { LayoutDashboard, Inbox, Users, LogOut, GraduationCap } from "lucide-rea
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 
-interface NavItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles: Array<"aluno" | "secretaria"> }
+interface NavItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles: Array<"aluno" | "secretaria" | "coordenador"> }
 
 const NAV: NavItem[] = [
   { to: "/dashboard/aluno", label: "Meu Estágio", icon: LayoutDashboard, roles: ["aluno"] },
-  { to: "/inbox/avaliador", label: "Inbox de Avaliação", icon: Inbox, roles: ["secretaria"] },
+  { to: "/inbox/avaliador", label: "Avaliação de Contratos", icon: Inbox, roles: ["secretaria"] },
+  { to: "/inbox/coordenador", label: "Fila de Pendências", icon: Inbox, roles: ["coordenador"] },
   { to: "/alunos", label: "Gestão de Alunos", icon: Users, roles: ["secretaria"] },
 ];
 
