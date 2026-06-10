@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { GraduationCap, Users } from "lucide-react";
+import { GraduationCap, Users, ClipboardCheck } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -91,11 +91,30 @@ function LoginPage() {
                   <Users className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium">Entrar como Secretaria / Coordenação</p>
-                  <p className="text-xs text-muted-foreground">Avalie contratos e gerencie alunos</p>
+                  <p className="font-medium">Entrar como Secretaria</p>
+                  <p className="text-xs text-muted-foreground">Gerencie todos os alunos e avalie contratos</p>
                 </div>
               </div>
             </Card>
+
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => login("coordenador")}
+              onKeyDown={(e) => e.key === "Enter" && login("coordenador")}
+              className="cursor-pointer p-5 hover:border-primary hover:shadow-md transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <ClipboardCheck className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Entrar como Coordenador</p>
+                  <p className="text-xs text-muted-foreground">Veja apenas pendências aguardando análise</p>
+                </div>
+              </div>
+            </Card>
+
           </div>
 
           <p className="text-xs text-muted-foreground mt-8 text-center">
