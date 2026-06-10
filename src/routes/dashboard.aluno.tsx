@@ -187,14 +187,20 @@ function DashboardAluno() {
               ) : (
                 <div className="space-y-2">
                   {ativo.relatorios.map((r) => (
-                    <div key={r.id} className="flex items-center gap-3 rounded-md border p-3">
+                    <Link
+                      key={r.id}
+                      to="/dashboard/aluno/relatorio/$processoId/$relatorioId"
+                      params={{ processoId: ativo.id, relatorioId: r.id }}
+                      className="group flex items-center gap-3 rounded-md border p-3 hover:bg-accent/40 hover:border-primary/40 transition"
+                    >
                       <FileText className="h-5 w-5 text-primary" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">{r.titulo}</p>
                         <p className="text-xs text-muted-foreground">Enviado em {r.data_envio}{r.atraso && " · com atraso"}</p>
                       </div>
                       <StatusBadge status={r.status} />
-                    </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                    </Link>
                   ))}
                 </div>
               )}
