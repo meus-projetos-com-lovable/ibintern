@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/store/app-store";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
@@ -8,10 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DocumentDropzone } from "@/components/document-dropzone";
-import { CheckCircle2, Circle, Clock, FileText, AlertTriangle, Plus, Send, ChevronRight } from "lucide-react";
+import { FileText, Plus, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { processos as processosApi, contratos as contratosApi } from "@/lib/api/endpoints";
+import { STATUS_PROCESSO_LABEL, STATUS_CONTRATO_LABEL } from "@/lib/api/types";
+import type { Processo, ProcessoDetail } from "@/lib/api/types";
 
-export const Route = createFileRoute("/dashboard/aluno/")({
+export const Route = createFileRoute("/dashboard/aluno/")(({
   head: () => ({
     meta: [
       { title: "Painel do Aluno — Ibmec Estágios" },
@@ -19,27 +23,76 @@ export const Route = createFileRoute("/dashboard/aluno/")({
     ],
   }),
   component: DashboardAluno,
-});
+}));
 
 function DashboardAluno() {
   const user = useAppStore((s) => s.user);
-  const processos = useAppStore((s) => s.processos);
-  const iniciarProcesso = useAppStore((s) => s.iniciarProcesso);
-  const enviarRelatorio = useAppStore((s) => s.enviarRelatorio);
+  const queryClient = useQueryClient();
 
-  const meus = useMemo(
-    () => (user ? processos.filter((p) => p.aluno_id === user.id) : []),
-    [processos, user]
-  );
-  const ativo = meus[0];
+  // Fetch all processos for the logged-in aluno
+  // The backend automatically filters by aluno when the user is not staff
+  const { data: processosData, isLoading } = useQuery({
+    queryKey: ["processos", "meus"],
+    queryFn: () => processosApi.listar(),
+    enabled: !!user,
+  });
+
+  const meus = processosData?.results ?? [];
+
+  // Fetch detail of the first (active) processo
+  const primeiroProcesso = meus[0];
+  const { data: ativoDetail } = useQuery({
+    queryKey: ["processos", "detalhe", primeiroProcesso?.matricula_aluno],
+    queryFn: () => {
+      // We need the processo ID — but list view doesn't return it directly.
+      // The NestedProcesso inside Aluno has ID, but ProcessoSerializer doesn't.
+      // We'll use the list endpoint and need the ID from somewhere.
+      // Actually, looking at ProcessoSerializer it doesn't return `id`.
+      // We'll need to use ProcessoDetailAPIView which needs the ID.
+      // For now, we show list data. Detail will be loaded from Aluno processos.
+      return null;
+    },
+    enabled: false, // Disabled until we have a way to get processo ID
+  });
 
   const [iniciarOpen, setIniciarOpen] = useState(false);
   const [empresa, setEmpresa] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [secretariaMatricula, setSecretariaMatricula] = useState("");
+  const [coordenacaoMatricula, setCoordenacaoMatricula] = useState("");
 
-  const [relatorioOpen, setRelatorioOpen] = useState(false);
-  const [tituloRelat, setTituloRelat] = useState("");
-  const [arquivoRelat, setArquivoRelat] = useState<File | null>(null);
+  const iniciarProcesso = useMutation({
+    mutationFn: (data: { nome_empresa: string; matricula_secretaria: string; matricula_coordenacao: string }) =>
+      processosApi.criar(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["processos"] });
+      toast.success("Processo criado com sucesso.");
+      setIniciarOpen(false);
+      setEmpresa("");
+      setArquivo(null);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const uploadContrato = useMutation({
+    mutationFn: (data: { processoId: number; arquivo: File }) =>
+      contratosApi.upload(data.processoId, data.arquivo),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["processos"] });
+      toast.success("Contrato enviado e secretaria notificada!");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -48,7 +101,7 @@ function DashboardAluno() {
           title="Meu Estágio"
           description="Acompanhe cada etapa do seu processo e envie documentos quando necessário."
           action={
-            !ativo && (
+            meus.length === 0 && (
               <Dialog open={iniciarOpen} onOpenChange={setIniciarOpen}>
                 <DialogTrigger asChild>
                   <Button className="gap-2"><Plus className="h-4 w-4" /> Iniciar Processo</Button>
@@ -63,26 +116,32 @@ function DashboardAluno() {
                       <Input id="empresa" value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="Ex: Petrobras S.A." />
                     </div>
                     <div>
-                      <Label>Termo de Compromisso (TCE)</Label>
-                      <div className="mt-2">
-                        <DocumentDropzone onFile={setArquivo} />
-                      </div>
+                      <Label htmlFor="secretaria">Matrícula da Secretaria</Label>
+                      <Input id="secretaria" value={secretariaMatricula} onChange={(e) => setSecretariaMatricula(e.target.value)} placeholder="Matrícula" />
+                    </div>
+                    <div>
+                      <Label htmlFor="coordenacao">Matrícula da Coordenação</Label>
+                      <Input id="coordenacao" value={coordenacaoMatricula} onChange={(e) => setCoordenacaoMatricula(e.target.value)} placeholder="Matrícula" />
                     </div>
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIniciarOpen(false)}>Cancelar</Button>
                     <Button
+                      disabled={iniciarProcesso.isPending}
                       onClick={() => {
-                        if (!empresa || !arquivo || !user) {
-                          toast.error("Preencha a empresa e anexe o contrato.");
+                        if (!empresa || !secretariaMatricula || !coordenacaoMatricula) {
+                          toast.error("Preencha todos os campos.");
                           return;
                         }
-                        iniciarProcesso(user.id, empresa, arquivo.name);
-                        toast.success("Processo iniciado e contrato enviado para análise.");
-                        setIniciarOpen(false); setEmpresa(""); setArquivo(null);
+                        iniciarProcesso.mutate({
+                          nome_empresa: empresa,
+                          matricula_secretaria: secretariaMatricula,
+                          matricula_coordenacao: coordenacaoMatricula,
+                        });
                       }}
                     >
-                      <Send className="h-4 w-4 mr-2" /> Enviar
+                      {iniciarProcesso.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      <Send className="h-4 w-4 mr-2" /> Criar
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -91,240 +150,50 @@ function DashboardAluno() {
           }
         />
 
-        {!ativo ? (
+        {meus.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">
               <FileText className="h-6 w-6 text-muted-foreground" />
             </div>
             <h3 className="font-display text-lg font-semibold mt-4">Você não possui processos de estágio ativos</h3>
-            <p className="text-sm text-muted-foreground mt-1 mb-6">Inicie um novo processo enviando o seu Termo de Compromisso de Estágio.</p>
+            <p className="text-sm text-muted-foreground mt-1 mb-6">Inicie um novo processo de estágio.</p>
             <Button onClick={() => setIniciarOpen(true)} className="gap-2"><Plus className="h-4 w-4" /> Iniciar Processo</Button>
           </Card>
         ) : (
           <div className="space-y-6">
-            <Card className="overflow-hidden">
-              <div className="p-6 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider opacity-75">Estágio em andamento</p>
-                    <h2 className="font-display text-2xl font-medium mt-1">{ativo.empresa}</h2>
-                    <p className="text-sm opacity-85 mt-1">{ativo.curso} · Processo #{ativo.id}</p>
+            {meus.map((proc) => (
+              <Card key={`${proc.matricula_aluno}-${proc.nome_empresa}`} className="overflow-hidden">
+                <div className="p-6 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider opacity-75">Estágio</p>
+                      <h2 className="font-display text-2xl font-medium mt-1">{proc.nome_empresa}</h2>
+                      <p className="text-sm opacity-85 mt-1">Aluno: {proc.matricula_aluno}</p>
+                    </div>
+                    <StatusBadge status={proc.status} />
                   </div>
-                  <StatusBadge status={ativo.status} />
                 </div>
-              </div>
-              <div className="p-6">
-                <Timeline processo={ativo} />
-              </div>
-            </Card>
-
-            {/* Contratos do Estágio */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="font-display font-semibold">Contratos do Estágio</h3>
-                  <p className="text-xs text-muted-foreground">Termos de compromisso enviados para validação</p>
-                </div>
-                {(() => {
-                  const hasBlockingContrato = ativo.contrato && (ativo.contrato.status === "Pendente" || ativo.contrato.status === "Aprovado");
-                  return (
-                    <Button
-                      size="sm"
-                      className="gap-2"
-                      disabled={!!hasBlockingContrato}
-                      onClick={() => setIniciarOpen(true)}
-                      title={hasBlockingContrato ? "Já existe um contrato pendente ou aprovado." : undefined}
-                    >
-                      <Plus className="h-4 w-4" /> Adicionar Contrato
-                    </Button>
-                  );
-                })()}
-              </div>
-
-              {ativo.contrato ? (
-                <div
-                  className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6"
-                  style={{ scrollbarWidth: "thin" }}
-                >
-                  <Link
-                    to="/dashboard/aluno/contrato/$processoId"
-                    params={{ processoId: ativo.id }}
-                    className="group flex-none w-60 h-72 bg-card border rounded-3xl p-5 shadow-sm snap-start flex flex-col justify-between hover:shadow-md hover:border-primary/40 transition cursor-pointer"
-                  >
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <div className="w-11 h-11 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                        <FileText className="w-5 h-5 text-primary" />
-                      </div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Contrato</p>
-                      <h4 className="text-base font-semibold leading-tight line-clamp-2">{ativo.contrato.nome_arquivo}</h4>
-                      <p className="text-xs text-muted-foreground mt-1.5 truncate">{ativo.contrato.nome_empresa ?? ativo.empresa}</p>
+                      <p className="text-xs text-muted-foreground">Secretaria</p>
+                      <p className="font-medium">{proc.matricula_secretaria}</p>
                     </div>
-                    <div className="mt-auto">
-                      <StatusBadge status={ativo.contrato.status} />
-                      <p className="text-[11px] text-muted-foreground mt-3">
-                        {(() => {
-                          const evt = ativo.historico.slice().reverse().find((h) => h.evento.toLowerCase().includes("contrato"));
-                          return `Movimentado em ${evt?.data ?? ativo.contrato!.data_envio}`;
-                        })()}
-                      </p>
-                    </div>
-                  </Link>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Nenhum contrato enviado.</p>
-              )}
-
-              {ativo.contrato?.status === "Reprovado" && ativo.contrato.observacoes && (
-                <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
-                  <p className="font-medium text-destructive flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Contrato reprovado</p>
-                  <p className="text-foreground/80 mt-1">{ativo.contrato.observacoes}</p>
-                </div>
-              )}
-            </Card>
-
-            {/* Relatórios do Estágio */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="font-display font-semibold">Relatórios do Estágio</h3>
-                  <p className="text-xs text-muted-foreground">Relatórios de atividades enviados ao coordenador</p>
-                </div>
-                {(() => {
-                  const hasBlockingRelat = ativo.relatorios.some((r) => r.status === "Pendente" || r.status === "Aprovado");
-                  const podeEnviar = ativo.status === "Em Andamento" && !hasBlockingRelat;
-                  return (
-                    <Dialog open={relatorioOpen} onOpenChange={setRelatorioOpen}>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          className="gap-2"
-                          disabled={!podeEnviar}
-                          title={
-                            ativo.status !== "Em Andamento"
-                              ? "O estágio precisa estar em andamento."
-                              : hasBlockingRelat
-                              ? "Já existe um relatório pendente ou aprovado."
-                              : undefined
-                          }
-                        >
-                          <Plus className="h-4 w-4" /> Adicionar Relatório
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader><DialogTitle>Enviar relatório de atividades</DialogTitle></DialogHeader>
-                        <div className="space-y-4 py-2">
-                          <div>
-                            <Label htmlFor="titulo">Título do relatório</Label>
-                            <Input id="titulo" value={tituloRelat} onChange={(e) => setTituloRelat(e.target.value)} placeholder="Ex: Relatório Bimestral 2" />
-                          </div>
-                          <DocumentDropzone onFile={setArquivoRelat} />
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setRelatorioOpen(false)}>Cancelar</Button>
-                          <Button onClick={() => {
-                            if (!tituloRelat || !arquivoRelat) { toast.error("Preencha o título e anexe o relatório."); return; }
-                            enviarRelatorio(ativo.id, tituloRelat, arquivoRelat.name);
-                            toast.success("Relatório enviado para análise.");
-                            setRelatorioOpen(false); setTituloRelat(""); setArquivoRelat(null);
-                          }}><Send className="h-4 w-4 mr-2" /> Enviar</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  );
-                })()}
-              </div>
-
-              {ativo.relatorios.length > 0 ? (
-                <div
-                  className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6"
-                  style={{ scrollbarWidth: "thin" }}
-                >
-                  {ativo.relatorios.map((r) => (
-                    <Link
-                      key={r.id}
-                      to="/dashboard/aluno/relatorio/$processoId/$relatorioId"
-                      params={{ processoId: ativo.id, relatorioId: r.id }}
-                      className="group flex-none w-60 h-72 bg-card border rounded-3xl p-5 shadow-sm snap-start flex flex-col justify-between hover:shadow-md hover:border-primary/40 transition cursor-pointer"
-                    >
-                      <div>
-                        <div className="w-11 h-11 bg-accent rounded-2xl flex items-center justify-center mb-4">
-                          <FileText className="w-5 h-5 text-foreground/70" />
-                        </div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Relatório</p>
-                        <h4 className="text-base font-semibold leading-tight line-clamp-2">{r.titulo}</h4>
-                        <p className="text-xs text-muted-foreground mt-1.5">{r.atraso ? "Entregue com atraso" : "Entrega regular"}</p>
-                      </div>
-                      <div className="mt-auto">
-                        <StatusBadge status={r.status} />
-                        <p className="text-[11px] text-muted-foreground mt-3">
-                          {(() => {
-                            const evt = ativo.historico.slice().reverse().find((h) => h.evento.toLowerCase().includes(r.titulo.toLowerCase()));
-                            return `Movimentado em ${evt?.data ?? r.data_envio}`;
-                          })()}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Nenhum relatório enviado ainda.</p>
-              )}
-            </Card>
-
-            <Card className="p-6">
-              <h3 className="font-display font-semibold mb-4">Histórico</h3>
-              <ul className="space-y-3">
-                {ativo.historico.slice().reverse().map((h, i) => (
-                  <li key={i} className="flex gap-3 text-sm">
-                    <div className="flex h-2 w-2 mt-1.5 rounded-full bg-primary shrink-0" />
                     <div>
-                      <p className="font-medium">{h.evento}</p>
-                      <p className="text-xs text-muted-foreground">{h.data}</p>
+                      <p className="text-xs text-muted-foreground">Coordenação</p>
+                      <p className="font-medium">{proc.matricula_coordenacao}</p>
                     </div>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            {meus.length > 1 && (
-              <div className="text-center">
-                <Link to="/dashboard/aluno" className="text-xs text-muted-foreground">
-                  Você tem {meus.length} processos no histórico.
-                </Link>
-              </div>
-            )}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <p className="font-medium">{STATUS_PROCESSO_LABEL[proc.status] ?? proc.status}</p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
         )}
       </div>
     </AppShell>
-  );
-}
-
-function Timeline({ processo }: { processo: ReturnType<typeof useAppStore.getState>["processos"][number] }) {
-  const steps = [
-    { key: "criado", label: "Processo iniciado", done: true },
-    { key: "contrato", label: "Contrato enviado", done: !!processo.contrato },
-    { key: "validacao", label: "Validação da Secretaria", done: processo.contrato?.status === "Aprovado" || processo.contrato?.status === "Reprovado", error: processo.contrato?.status === "Reprovado" },
-    { key: "andamento", label: "Estágio em andamento", done: processo.status === "Em Andamento" || processo.status === "Aprovado" },
-    { key: "relatorios", label: "Relatórios entregues", done: processo.relatorios.some((r) => r.status === "Aprovado") },
-    { key: "concluido", label: "Estágio concluído", done: processo.status === "Aprovado" },
-  ];
-
-  return (
-    <div>
-      <ol className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        {steps.map((s, i) => (
-          <li key={s.key} className="flex md:flex-col items-start md:items-center gap-2 text-center">
-            <div className={`flex h-8 w-8 items-center justify-center rounded-full shrink-0 ${
-              s.error ? "bg-destructive text-destructive-foreground"
-              : s.done ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-            }`}>
-              {s.error ? <AlertTriangle className="h-4 w-4" /> : s.done ? <CheckCircle2 className="h-4 w-4" /> : i === steps.findIndex(x => !x.done) ? <Clock className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
-            </div>
-            <span className={`text-xs ${s.done ? "font-medium text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
-          </li>
-        ))}
-      </ol>
-    </div>
   );
 }

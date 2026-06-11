@@ -1,13 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { useAppStore } from "@/store/app-store";
+import { useQuery } from "@tanstack/react-query";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, AlertTriangle, FileText, Download, Building2, Calendar, ShieldCheck } from "lucide-react";
-import { toast } from "sonner";
-
-const DEMO_PDF = "https://www.africau.edu/images/default/sample.pdf";
+import { ArrowLeft, FileText, Download, Building2, Calendar, ShieldCheck, Loader2, AlertTriangle } from "lucide-react";
+import { processos as processosApi, contratos as contratosApi } from "@/lib/api/endpoints";
+import { STATUS_CONTRATO_LABEL } from "@/lib/api/types";
 
 export const Route = createFileRoute("/dashboard/aluno/contrato/$processoId")({
   head: () => ({
@@ -22,16 +20,37 @@ export const Route = createFileRoute("/dashboard/aluno/contrato/$processoId")({
 function ContratoDetalhe() {
   const { processoId } = Route.useParams();
   const navigate = useNavigate();
-  const processo = useAppStore((s) => s.processos.find((p) => p.id === processoId));
+  const pid = Number(processoId);
 
-  const eventos = useMemo(() => {
-    if (!processo) return [];
-    return processo.historico.filter((h) =>
-      /contrato/i.test(h.evento) || /aprovad/i.test(h.evento) || /reprovad/i.test(h.evento)
+  const { data: processo, isLoading } = useQuery({
+    queryKey: ["processos", "detalhe", pid],
+    queryFn: () => processosApi.detalhe(pid),
+  });
+
+  const contratoAtivo = processo?.contrato?.[0];
+
+  // Download URL for the latest contrato
+  const { data: downloadUrl } = useQuery({
+    queryKey: ["contratos", "download", contratoAtivo?.nome_empresa],
+    queryFn: async () => {
+      // We need the contrato ID for download, but NestedContratoSerializer doesn't return it.
+      // For now, we'll show an unavailable state.
+      return null;
+    },
+    enabled: false,
+  });
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
     );
-  }, [processo]);
+  }
 
-  if (!processo || !processo.contrato) {
+  if (!processo || !contratoAtivo) {
     return (
       <AppShell>
         <div className="px-6 lg:px-10 py-8 max-w-3xl mx-auto">
@@ -44,8 +63,6 @@ function ContratoDetalhe() {
     );
   }
 
-  const c = processo.contrato;
-
   return (
     <AppShell>
       <div className="px-6 lg:px-10 py-8 max-w-6xl mx-auto">
@@ -54,66 +71,41 @@ function ContratoDetalhe() {
         </Link>
         <PageHeader
           title="Termo de Compromisso"
-          description={c.nome_arquivo}
-          action={<StatusBadge status={c.status} />}
+          description={processo.nome_empresa}
+          action={<StatusBadge status={contratoAtivo.status} />}
         />
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-6">
           <Card className="overflow-hidden">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <div className="flex items-center gap-2 text-sm">
-                <FileText className="h-4 w-4 text-primary" />
-                <span className="font-medium truncate">{c.nome_arquivo}</span>
-              </div>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => toast.success("Download iniciado")}>
-                <Download className="h-3.5 w-3.5" /> Baixar
-              </Button>
+            <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
+              <FileText className="h-12 w-12 text-primary/60 mb-4" />
+              <p className="font-display font-medium">Contrato — {contratoAtivo.nome_empresa ?? processo.nome_empresa}</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Use o botão de download para acessar o arquivo PDF
+              </p>
             </div>
-            <iframe
-              title="Pré-visualização do contrato"
-              src={DEMO_PDF}
-              className="w-full h-[720px] bg-muted"
-            />
           </Card>
 
           <div className="space-y-4">
             <Card className="p-5">
-              <h3 className="font-display font-semibold mb-3">Dados do documento</h3>
+              <h3 className="font-display font-semibold mb-3">Dados do contrato</h3>
               <dl className="space-y-3 text-sm">
-                <Field icon={Building2} label="Empresa concedente" value={c.nome_empresa ?? processo.empresa} />
-                <Field icon={Calendar} label="Data de envio" value={c.data_envio} />
-                <Field icon={Calendar} label="Início do estágio" value={c.data_inicio ?? "—"} />
-                <Field icon={ShieldCheck} label="Apólice de seguro" value={c.apolice_seguro ?? "—"} />
+                <Field icon={Building2} label="Empresa concedente" value={contratoAtivo.nome_empresa ?? processo.nome_empresa} />
+                <Field icon={Calendar} label="Data de upload" value={contratoAtivo.data_upload} />
+                <Field icon={ShieldCheck} label="Conflito de grade" value={contratoAtivo.conflito_grade ? "⚠️ Sim" : "Não"} />
               </dl>
             </Card>
 
-            {c.status === "Reprovado" && c.observacoes && (
+            {contratoAtivo.status === "reprovado" && (
               <Card className="p-5 border-destructive/30 bg-destructive/5">
                 <p className="font-medium text-destructive flex items-center gap-2 text-sm">
-                  <AlertTriangle className="h-4 w-4" /> Justificativa da reprovação
+                  <AlertTriangle className="h-4 w-4" /> Contrato reprovado
                 </p>
-                <p className="text-sm text-foreground/80 mt-2">{c.observacoes}</p>
+                <p className="text-sm text-foreground/80 mt-2">
+                  Entre em contato com a secretaria para detalhes.
+                </p>
               </Card>
             )}
-
-            <Card className="p-5">
-              <h3 className="font-display font-semibold mb-3">Histórico de avaliações</h3>
-              {eventos.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sem registros ainda.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {eventos.slice().reverse().map((h, i) => (
-                    <li key={i} className="flex gap-3 text-sm">
-                      <div className="flex h-2 w-2 mt-1.5 rounded-full bg-primary shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium">{h.evento}</p>
-                        <p className="text-xs text-muted-foreground">{h.data}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
           </div>
         </div>
       </div>

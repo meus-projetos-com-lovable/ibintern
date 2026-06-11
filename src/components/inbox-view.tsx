@@ -1,66 +1,75 @@
 import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/store/app-store";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, CheckCircle2, XCircle, FileText, Inbox } from "lucide-react";
+import { Search, CheckCircle2, XCircle, FileText, Inbox, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import type { ProcessoStatus } from "@/lib/mock-data";
+import { processos as processosApi, contratos as contratosApi } from "@/lib/api/endpoints";
+import type { Processo, StatusContrato } from "@/lib/api/types";
+import { STATUS_PROCESSO_LABEL } from "@/lib/api/types";
 
 interface InboxViewProps {
   title: string;
   description?: string;
-  /** If set, only show processes whose contract status is in this list. */
-  onlyContratoStatus?: ProcessoStatus[];
+  /** If set, only show processes whose status is in this list */
+  filterStatus?: string[];
   /** Allow user to toggle status filters in the UI (secretaria). */
   showStatusFilter?: boolean;
   /** Whether to render the approve/reprove footer (only for pending items). */
   allowAvaliacao?: boolean;
 }
 
-const ALL_STATUS: ProcessoStatus[] = ["Pendente", "Em Andamento", "Aprovado", "Reprovado"];
+const ALL_STATUS = ["aberto", "pendente", "em_andamento", "reprovado", "concluido", "cancelado"] as const;
 
 export function InboxView({
   title,
   description,
-  onlyContratoStatus,
+  filterStatus,
   showStatusFilter = false,
   allowAvaliacao = true,
 }: InboxViewProps) {
-  const processos = useAppStore((s) => s.processos);
-  const avaliarContrato = useAppStore((s) => s.avaliarContrato);
   const user = useAppStore((s) => s.user);
-  const avaliacoes = useAppStore((s) => s.avaliacoes);
+  const queryClient = useQueryClient();
+
+  const { data: processosData, isLoading } = useQuery({
+    queryKey: ["processos"],
+    queryFn: () => processosApi.listar(),
+    enabled: !!user,
+  });
+
+  const allProcessos = processosData?.results ?? [];
 
   const [busca, setBusca] = useState("");
-  const [statusFiltro, setStatusFiltro] = useState<ProcessoStatus | "Todos">("Todos");
-  const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
-  const [showJustif, setShowJustif] = useState(false);
-  const [justificativa, setJustificativa] = useState("");
-  const [aba, setAba] = useState<"fila" | "log">("fila");
-
-  const meuLog = useMemo(
-    () => (user ? avaliacoes.filter((a) => a.avaliador_id === user.id) : []),
-    [avaliacoes, user]
-  );
+  const [statusFiltro, setStatusFiltro] = useState<string>("Todos");
+  const [selecionadoIdx, setSelecionadoIdx] = useState<number>(0);
 
   const lista = useMemo(() => {
-    return processos.filter((p) => {
-      if (!p.contrato) return false;
-      if (onlyContratoStatus && !onlyContratoStatus.includes(p.contrato.status)) return false;
-      if (showStatusFilter && statusFiltro !== "Todos" && p.contrato.status !== statusFiltro) return false;
+    return allProcessos.filter((p) => {
+      if (filterStatus && !filterStatus.includes(p.status)) return false;
+      if (showStatusFilter && statusFiltro !== "Todos" && p.status !== statusFiltro) return false;
       if (busca) {
         const q = busca.toLowerCase();
-        if (!p.aluno_nome.toLowerCase().includes(q) && !p.matricula.includes(q)) return false;
+        if (!p.matricula_aluno.toLowerCase().includes(q) && !p.nome_empresa.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [processos, busca, statusFiltro, onlyContratoStatus, showStatusFilter]);
+  }, [allProcessos, busca, statusFiltro, filterStatus, showStatusFilter]);
 
-  const selecionado = lista.find((p) => p.id === selecionadoId) ?? lista[0];
-  const isPendente = selecionado?.contrato?.status === "Pendente";
+  const selecionado = lista[selecionadoIdx] ?? lista[0];
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -82,7 +91,7 @@ export function InboxView({
                       : "bg-card text-foreground/70 hover:bg-muted"
                   }`}
                 >
-                  {s}
+                  {s === "Todos" ? "Todos" : STATUS_PROCESSO_LABEL[s] ?? s}
                 </button>
               ))}
             </div>
@@ -91,103 +100,45 @@ export function InboxView({
 
         <div className="flex-1 grid md:grid-cols-[380px_1fr] min-h-0">
           <aside className="border-r flex flex-col min-h-0">
-            <div className="flex border-b">
-              <button
-                onClick={() => setAba("fila")}
-                className={`flex-1 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                  aba === "fila" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Fila ({lista.length})
-              </button>
-              <button
-                onClick={() => setAba("log")}
-                className={`flex-1 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                  aba === "log" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Meu Histórico ({meuLog.length})
-              </button>
-            </div>
-
-            {aba === "fila" ? (
-              <>
-                <div className="p-4 border-b">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por nome ou matrícula..."
-                      value={busca}
-                      onChange={(e) => setBusca(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                  {lista.length === 0 ? (
-                    <div className="text-center py-12 px-4">
-                      <Inbox className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-sm font-medium">Nenhum processo na fila</p>
-                      <p className="text-xs text-muted-foreground mt-1">Você está em dia.</p>
-                    </div>
-                  ) : (
-                    lista.map((p) => {
-                      const active = selecionado?.id === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => { setSelecionadoId(p.id); setShowJustif(false); setJustificativa(""); }}
-                          className={`w-full text-left rounded-lg border p-3 transition-all ${
-                            active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/40"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="font-medium text-sm truncate">{p.aluno_nome}</p>
-                            <StatusBadge status={p.contrato?.status ?? "Pendente"} />
-                          </div>
-                          <p className="text-xs text-muted-foreground">{p.matricula} · {p.curso}</p>
-                          <p className="text-xs text-muted-foreground mt-1 truncate">→ {p.empresa}</p>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {meuLog.length === 0 ? (
-                  <div className="text-center py-12 px-4">
-                    <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm font-medium">Nenhuma avaliação registrada</p>
-                    <p className="text-xs text-muted-foreground mt-1">Suas decisões aparecerão aqui.</p>
-                  </div>
-                ) : (
-                  meuLog.map((a) => {
-                    const isReprov = a.veredito === "Reprovado";
-                    return (
-                      <button
-                        key={a.id}
-                        onClick={() => { setSelecionadoId(a.processo_id); setAba("fila"); }}
-                        className="w-full text-left rounded-lg border border-border p-3 hover:border-primary/40 hover:bg-muted/40 transition-all"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <p className="font-medium text-sm truncate">{a.aluno_nome}</p>
-                          <StatusBadge status={a.veredito} />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          <span className={isReprov ? "text-destructive font-medium" : "text-foreground/70 font-medium"}>{a.tipo}</span>
-                          {" · "}{a.alvo}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-1">{a.data}</p>
-                        {a.justificativa && (
-                          <p className="text-[11px] text-muted-foreground mt-1 italic line-clamp-2">"{a.justificativa}"</p>
-                        )}
-                      </button>
-                    );
-                  })
-                )}
+            <div className="p-4 border-b">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por matrícula ou empresa..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  className="pl-9"
+                />
               </div>
-            )}
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {lista.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <Inbox className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm font-medium">Nenhum processo na fila</p>
+                  <p className="text-xs text-muted-foreground mt-1">Você está em dia.</p>
+                </div>
+              ) : (
+                lista.map((p, idx) => {
+                  const active = selecionadoIdx === idx;
+                  return (
+                    <button
+                      key={`${p.matricula_aluno}-${p.nome_empresa}`}
+                      onClick={() => setSelecionadoIdx(idx)}
+                      className={`w-full text-left rounded-lg border p-3 transition-all ${
+                        active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="font-medium text-sm truncate">{p.nome_empresa}</p>
+                        <StatusBadge status={p.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Aluno: {p.matricula_aluno}</p>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </aside>
 
           <section className="flex flex-col min-h-0 bg-muted/30">
@@ -196,121 +147,33 @@ export function InboxView({
                 <div className="text-center max-w-sm">
                   <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
                   <p className="font-medium">Selecione um processo</p>
-                  <p className="text-sm text-muted-foreground mt-1">Escolha um item da fila à esquerda para visualizar o contrato.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Escolha um item da fila à esquerda para visualizar.</p>
                 </div>
               </div>
             ) : (
               <>
                 <div className="border-b bg-card px-6 py-4 flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="font-display text-lg font-semibold">{selecionado.aluno_nome}</h2>
-                    <p className="text-xs text-muted-foreground">{selecionado.matricula} · {selecionado.curso} · {selecionado.empresa}</p>
+                    <h2 className="font-display text-lg font-semibold">{selecionado.nome_empresa}</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Aluno: {selecionado.matricula_aluno} · Secretaria: {selecionado.matricula_secretaria} · Coordenação: {selecionado.matricula_coordenacao}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={selecionado.contrato?.status ?? "Pendente"} />
-                    <Button variant="outline" size="sm" onClick={() => toast.success("Download iniciado")}>Baixar PDF</Button>
-                  </div>
+                  <StatusBadge status={selecionado.status} />
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6">
-                  <Card className="p-0 overflow-hidden max-w-3xl mx-auto">
-                    <div className="aspect-[1/1.3] bg-card-alt flex flex-col items-center justify-center text-center p-8 border-b">
-                      <FileText className="h-12 w-12 text-primary/60 mb-4" />
-                      <p className="font-display font-medium">{selecionado.contrato?.nome_arquivo}</p>
-                      <p className="text-xs text-muted-foreground mt-2">Visualização do PDF (demonstração)</p>
-                    </div>
-                    <div className="p-6 space-y-3 text-sm">
-                      <Field label="Empresa" value={selecionado.contrato?.nome_empresa} />
-                      <Field label="Data de início" value={selecionado.contrato?.data_inicio} />
-                      <Field label="Apólice de seguro" value={selecionado.contrato?.apolice_seguro} />
-                      <Field label="Recebido em" value={selecionado.contrato?.data_envio} />
-                      {selecionado.contrato?.observacoes && (
-                        <Field label="Observações" value={selecionado.contrato.observacoes} />
-                      )}
+                  <Card className="p-6 max-w-3xl mx-auto">
+                    <h3 className="font-display font-semibold mb-4">Dados do Processo</h3>
+                    <div className="space-y-3 text-sm">
+                      <Field label="Empresa" value={selecionado.nome_empresa} />
+                      <Field label="Matrícula do Aluno" value={selecionado.matricula_aluno} />
+                      <Field label="Status" value={STATUS_PROCESSO_LABEL[selecionado.status] ?? selecionado.status} />
+                      <Field label="Secretaria" value={selecionado.matricula_secretaria} />
+                      <Field label="Coordenação" value={selecionado.matricula_coordenacao} />
                     </div>
                   </Card>
-
-                  <Card className="p-5 max-w-3xl mx-auto mt-4">
-                    <h3 className="font-display font-semibold text-sm mb-3">Histórico de avaliações</h3>
-                    {selecionado.historico.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Sem eventos registrados.</p>
-                    ) : (
-                      <ol className="relative border-l border-border ml-2 space-y-4">
-                        {selecionado.historico.slice().reverse().map((h, i) => {
-                          const ev = h.evento.toLowerCase();
-                          const isReprov = ev.includes("reprovad");
-                          const isAprov = ev.includes("aprovad");
-                          const dotClass = isReprov
-                            ? "bg-destructive"
-                            : isAprov
-                              ? "bg-success"
-                              : "bg-primary";
-                          return (
-                            <li key={i} className="ml-4">
-                              <span className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-card ${dotClass}`} />
-                              <p className="text-sm font-medium">{h.evento}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">{h.data}</p>
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    )}
-                  </Card>
-
-                  {showJustif && (
-                    <Card className="p-4 max-w-3xl mx-auto mt-4 border-destructive/30 bg-destructive/5">
-                      <p className="text-sm font-medium mb-2">Justificativa da reprovação</p>
-                      <Textarea
-                        value={justificativa}
-                        onChange={(e) => setJustificativa(e.target.value)}
-                        placeholder="Descreva o que precisa ser corrigido pelo aluno..."
-                        rows={3}
-                      />
-                    </Card>
-                  )}
                 </div>
-
-                {allowAvaliacao && isPendente && (
-                  <div className="sticky bottom-0 border-t bg-card px-6 py-4 flex flex-wrap gap-3 justify-end">
-                    {!showJustif ? (
-                      <>
-                        <Button variant="outline" className="gap-2 border-destructive/40 text-destructive hover:bg-destructive/5" onClick={() => setShowJustif(true)}>
-                          <XCircle className="h-4 w-4" /> Reprovar / Solicitar Ajuste
-                        </Button>
-                        <Button
-                          className="gap-2"
-                          onClick={() => {
-                            avaliarContrato(selecionado.id, "Aprovado");
-                            toast.success("Contrato aprovado.");
-                            setSelecionadoId(null);
-                          }}
-                        >
-                          <CheckCircle2 className="h-4 w-4" /> Aprovar
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button variant="outline" onClick={() => { setShowJustif(false); setJustificativa(""); }}>Cancelar</Button>
-                        <Button
-                          variant="destructive"
-                          onClick={() => {
-                            if (justificativa.trim().length < 5) { toast.error("Descreva a justificativa."); return; }
-                            avaliarContrato(selecionado.id, "Reprovado", justificativa.trim());
-                            toast.success("Contrato reprovado e aluno notificado.");
-                            setSelecionadoId(null); setShowJustif(false); setJustificativa("");
-                          }}
-                        >
-                          Confirmar Reprovação
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
-                {allowAvaliacao && !isPendente && (
-                  <div className="border-t bg-muted/40 px-6 py-3 text-xs text-muted-foreground text-center">
-                    Este processo já foi avaliado. Mostrando apenas leitura.
-                  </div>
-                )}
               </>
             )}
           </section>

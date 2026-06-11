@@ -12,7 +12,7 @@ export const Route = createFileRoute("/inbox/coordenador")({
     <InboxView
       title="Fila de Pendências"
       description="Apenas contratos aguardando sua análise."
-      onlyContratoStatus={["Pendente"]}
+      filterStatus={["pendente", "em_andamento"]}
     />
   ),
 });

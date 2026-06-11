@@ -1,13 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { useAppStore } from "@/store/app-store";
+import { useQuery } from "@tanstack/react-query";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, AlertTriangle, FileText, Download, Calendar, Clock } from "lucide-react";
-import { toast } from "sonner";
-
-const DEMO_PDF = "https://www.africau.edu/images/default/sample.pdf";
+import { ArrowLeft, FileText, Calendar, Clock, Loader2, AlertTriangle } from "lucide-react";
+import { processos as processosApi } from "@/lib/api/endpoints";
 
 export const Route = createFileRoute("/dashboard/aluno/relatorio/$processoId/$relatorioId")({
   head: () => ({
@@ -22,13 +19,25 @@ export const Route = createFileRoute("/dashboard/aluno/relatorio/$processoId/$re
 function RelatorioDetalhe() {
   const { processoId, relatorioId } = Route.useParams();
   const navigate = useNavigate();
-  const processo = useAppStore((s) => s.processos.find((p) => p.id === processoId));
-  const relatorio = processo?.relatorios.find((r) => r.id === relatorioId);
+  const pid = Number(processoId);
+  const ridx = Number(relatorioId); // index in the relatorio array
 
-  const eventos = useMemo(() => {
-    if (!processo || !relatorio) return [];
-    return processo.historico.filter((h) => h.evento.toLowerCase().includes(relatorio.titulo.toLowerCase()) || /relatório/i.test(h.evento));
-  }, [processo, relatorio]);
+  const { data: processo, isLoading } = useQuery({
+    queryKey: ["processos", "detalhe", pid],
+    queryFn: () => processosApi.detalhe(pid),
+  });
+
+  const relatorio = processo?.relatorio?.[ridx];
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!processo || !relatorio) {
     return (
@@ -50,74 +59,40 @@ function RelatorioDetalhe() {
           <ArrowLeft className="h-4 w-4" /> Voltar ao Meu Estágio
         </Link>
         <PageHeader
-          title={relatorio.titulo}
-          description={`Relatório de atividades · Processo #${processo.id}`}
+          title={`Relatório de Estágio`}
+          description={`Processo #${processoId} — ${processo.nome_empresa}`}
           action={<StatusBadge status={relatorio.status} />}
         />
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-6">
           <Card className="overflow-hidden">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <div className="flex items-center gap-2 text-sm">
-                <FileText className="h-4 w-4 text-primary" />
-                <span className="font-medium truncate">{relatorio.titulo}.pdf</span>
-              </div>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => toast.success("Download iniciado")}>
-                <Download className="h-3.5 w-3.5" /> Baixar
-              </Button>
+            <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
+              <FileText className="h-12 w-12 text-primary/60 mb-4" />
+              <p className="font-display font-medium">Relatório de Estágio</p>
+              <p className="text-xs text-muted-foreground mt-2">Pré-visualização indisponível</p>
             </div>
-            <iframe
-              title="Pré-visualização do relatório"
-              src={DEMO_PDF}
-              className="w-full h-[720px] bg-muted"
-            />
           </Card>
 
           <div className="space-y-4">
             <Card className="p-5">
-              <h3 className="font-display font-semibold mb-3">Dados do documento</h3>
+              <h3 className="font-display font-semibold mb-3">Dados do relatório</h3>
               <dl className="space-y-3 text-sm">
-                <Field icon={Calendar} label="Data de envio" value={relatorio.data_envio} />
-                <Field icon={Clock} label="Entrega" value={relatorio.atraso ? "Com atraso" : "No prazo"} />
-                <Field icon={FileText} label="Empresa" value={processo.empresa} />
+                <Field icon={Calendar} label="Data de upload" value={relatorio.data_upload} />
+                <Field icon={Clock} label="Entrega" value={"Registrado no sistema"} />
+                <Field icon={FileText} label="Empresa" value={processo.nome_empresa} />
               </dl>
-              {relatorio.corpo && (
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-xs text-muted-foreground mb-1">Resumo</p>
-                  <p className="text-sm">{relatorio.corpo}</p>
-                </div>
-              )}
             </Card>
 
-            {relatorio.status === "Reprovado" && (
+            {relatorio.status === "reprovado" && (
               <Card className="p-5 border-destructive/30 bg-destructive/5">
                 <p className="font-medium text-destructive flex items-center gap-2 text-sm">
-                  <AlertTriangle className="h-4 w-4" /> Justificativa da reprovação
+                  <AlertTriangle className="h-4 w-4" /> Relatório reprovado
                 </p>
                 <p className="text-sm text-foreground/80 mt-2">
-                  {eventos.find((e) => /reprovad/i.test(e.evento))?.evento ?? "Reprovado sem justificativa registrada."}
+                  Entre em contato com a coordenação para detalhes.
                 </p>
               </Card>
             )}
-
-            <Card className="p-5">
-              <h3 className="font-display font-semibold mb-3">Histórico de avaliações</h3>
-              {eventos.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sem registros ainda.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {eventos.slice().reverse().map((h, i) => (
-                    <li key={i} className="flex gap-3 text-sm">
-                      <div className="flex h-2 w-2 mt-1.5 rounded-full bg-primary shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-medium">{h.evento}</p>
-                        <p className="text-xs text-muted-foreground">{h.data}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
           </div>
         </div>
       </div>
