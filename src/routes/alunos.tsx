@@ -10,8 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, UserPlus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Search, UserPlus, MoreVertical, Eye, FileText } from "lucide-react";
 import { toast } from "sonner";
+import type { Processo } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/alunos")({
   head: () => ({
@@ -53,6 +60,10 @@ function AlunosPage() {
 
   const [open, setOpen] = useState(false);
   const [busca, setBusca] = useState("");
+
+  const [detalhesAluno, setDetalhesAluno] = useState<typeof alunos[number] | null>(null);
+  const [processosAluno, setProcessosAluno] = useState<Processo[]>([]);
+  const [openProcessos, setOpenProcessos] = useState(false);
 
   const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { nome: "", matricula: "", cpf: "", curso: "", email: "" } });
 
@@ -135,19 +146,35 @@ function AlunosPage() {
                     <th className="px-4 py-3 font-medium">Matrícula</th>
                     <th className="px-4 py-3 font-medium">Curso</th>
                     <th className="px-4 py-3 font-medium">E-mail</th>
-                    <th className="px-4 py-3 font-medium text-right">Processos</th>
+                    <th className="px-4 py-3 font-medium w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtrados.map((a) => {
-                    const count = processos.filter((p) => p.aluno_id === a.id).length;
+                    const procs = processos.filter((p) => p.aluno_id === a.id);
                     return (
                       <tr key={a.id} className="border-t hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-medium">{a.nome}</td>
                         <td className="px-4 py-3 text-muted-foreground">{a.matricula}</td>
                         <td className="px-4 py-3 text-muted-foreground">{a.curso}</td>
                         <td className="px-4 py-3 text-muted-foreground">{a.email}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{count}</td>
+                        <td className="px-4 py-3 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setDetalhesAluno(a)}>
+                                <Eye className="mr-2 h-4 w-4" /> Ver detalhes do aluno
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setProcessosAluno(procs); setOpenProcessos(true); }}>
+                                <FileText className="mr-2 h-4 w-4" /> Ver processo do aluno
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
                       </tr>
                     );
                   })}
@@ -157,6 +184,83 @@ function AlunosPage() {
           )}
         </Card>
       </div>
+
+      {/* Dialog: Detalhes do Aluno */}
+      <Dialog open={!!detalhesAluno} onOpenChange={() => setDetalhesAluno(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Aluno</DialogTitle>
+          </DialogHeader>
+          {detalhesAluno && (
+            <div className="space-y-3 text-sm py-2">
+              <div className="flex justify-between border-b border-dashed pb-2">
+                <span className="text-muted-foreground">Nome</span>
+                <span className="font-medium">{detalhesAluno.nome}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed pb-2">
+                <span className="text-muted-foreground">Matrícula</span>
+                <span className="font-medium">{detalhesAluno.matricula}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed pb-2">
+                <span className="text-muted-foreground">CPF</span>
+                <span className="font-medium">{detalhesAluno.cpf}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed pb-2">
+                <span className="text-muted-foreground">Curso</span>
+                <span className="font-medium">{detalhesAluno.curso}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed pb-2">
+                <span className="text-muted-foreground">E-mail</span>
+                <span className="font-medium">{detalhesAluno.email}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Processos do Aluno */}
+      <Dialog open={openProcessos} onOpenChange={setOpenProcessos}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Processos do Aluno</DialogTitle>
+          </DialogHeader>
+          {processosAluno.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Nenhum processo encontrado para este aluno.</p>
+          ) : (
+            <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
+              {processosAluno.map((p) => (
+                <Card key={p.id} className="p-4 border">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-sm">{p.empresa}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{p.matricula} · {p.curso}</p>
+                    </div>
+                    <span className={`text-xs rounded-full border px-2 py-0.5 ${
+                      p.status === "Aprovado" ? "bg-success/10 text-success border-success/30" :
+                      p.status === "Reprovado" ? "bg-destructive/10 text-destructive border-destructive/30" :
+                      p.status === "Em Andamento" ? "bg-primary/10 text-primary border-primary/30" :
+                      "bg-muted text-muted-foreground border-border"
+                    }`}>
+                      {p.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Criado em {p.criado_em}</p>
+                  {p.contrato && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Contrato: <span className="font-medium">{p.contrato.nome_arquivo}</span> — {p.contrato.status}
+                    </p>
+                  )}
+                  {p.relatorios.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Relatórios: {p.relatorios.length} enviado(s)
+                    </p>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
