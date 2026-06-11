@@ -118,45 +118,34 @@ function DashboardAluno() {
               </div>
             </Card>
 
+            {/* Contratos do Estágio */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="font-display font-semibold">Documentos do Estágio</h3>
-                  <p className="text-xs text-muted-foreground">Contrato e relatórios de atividades</p>
+                  <h3 className="font-display font-semibold">Contratos do Estágio</h3>
+                  <p className="text-xs text-muted-foreground">Termos de compromisso enviados para validação</p>
                 </div>
-                {ativo.status === "Em Andamento" && (
-                  <Dialog open={relatorioOpen} onOpenChange={setRelatorioOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-2"><Plus className="h-4 w-4" /> Adicionar Relatório</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Enviar relatório de atividades</DialogTitle></DialogHeader>
-                      <div className="space-y-4 py-2">
-                        <div>
-                          <Label htmlFor="titulo">Título do relatório</Label>
-                          <Input id="titulo" value={tituloRelat} onChange={(e) => setTituloRelat(e.target.value)} placeholder="Ex: Relatório Bimestral 2" />
-                        </div>
-                        <DocumentDropzone onFile={setArquivoRelat} />
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setRelatorioOpen(false)}>Cancelar</Button>
-                        <Button onClick={() => {
-                          if (!tituloRelat || !arquivoRelat) { toast.error("Preencha o título e anexe o relatório."); return; }
-                          enviarRelatorio(ativo.id, tituloRelat, arquivoRelat.name);
-                          toast.success("Relatório enviado para análise.");
-                          setRelatorioOpen(false); setTituloRelat(""); setArquivoRelat(null);
-                        }}><Send className="h-4 w-4 mr-2" /> Enviar</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )}
+                {(() => {
+                  const hasBlockingContrato = ativo.contrato && (ativo.contrato.status === "Pendente" || ativo.contrato.status === "Aprovado");
+                  return (
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      disabled={!!hasBlockingContrato}
+                      onClick={() => setIniciarOpen(true)}
+                      title={hasBlockingContrato ? "Já existe um contrato pendente ou aprovado." : undefined}
+                    >
+                      <Plus className="h-4 w-4" /> Adicionar Contrato
+                    </Button>
+                  );
+                })()}
               </div>
 
-              <div
-                className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6"
-                style={{ scrollbarWidth: "thin" }}
-              >
-                {ativo.contrato && (
+              {ativo.contrato ? (
+                <div
+                  className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6"
+                  style={{ scrollbarWidth: "thin" }}
+                >
                   <Link
                     to="/dashboard/aluno/contrato/$processoId"
                     params={{ processoId: ativo.id }}
@@ -180,55 +169,105 @@ function DashboardAluno() {
                       </p>
                     </div>
                   </Link>
-                )}
-
-                {ativo.relatorios.map((r) => (
-                  <Link
-                    key={r.id}
-                    to="/dashboard/aluno/relatorio/$processoId/$relatorioId"
-                    params={{ processoId: ativo.id, relatorioId: r.id }}
-                    className="group flex-none w-60 h-72 bg-card border rounded-3xl p-5 shadow-sm snap-start flex flex-col justify-between hover:shadow-md hover:border-primary/40 transition cursor-pointer"
-                  >
-                    <div>
-                      <div className="w-11 h-11 bg-accent rounded-2xl flex items-center justify-center mb-4">
-                        <FileText className="w-5 h-5 text-foreground/70" />
-                      </div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Relatório</p>
-                      <h4 className="text-base font-semibold leading-tight line-clamp-2">{r.titulo}</h4>
-                      <p className="text-xs text-muted-foreground mt-1.5">{r.atraso ? "Entregue com atraso" : "Entrega regular"}</p>
-                    </div>
-                    <div className="mt-auto">
-                      <StatusBadge status={r.status} />
-                      <p className="text-[11px] text-muted-foreground mt-3">
-                        {(() => {
-                          const evt = ativo.historico.slice().reverse().find((h) => h.evento.toLowerCase().includes(r.titulo.toLowerCase()));
-                          return `Movimentado em ${evt?.data ?? r.data_envio}`;
-                        })()}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-
-                {ativo.status === "Em Andamento" && (
-                  <button
-                    onClick={() => setRelatorioOpen(true)}
-                    className="flex-none w-60 h-72 rounded-3xl border-2 border-dashed border-border bg-card-alt/30 snap-start flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition cursor-pointer"
-                  >
-                    <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Plus className="w-7 h-7 text-primary" />
-                    </div>
-                    <p className="font-medium text-sm">Novo Relatório</p>
-                    <p className="text-xs">Upload de PDF</p>
-                  </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhum contrato enviado.</p>
+              )}
 
               {ativo.contrato?.status === "Reprovado" && ativo.contrato.observacoes && (
                 <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
                   <p className="font-medium text-destructive flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Contrato reprovado</p>
                   <p className="text-foreground/80 mt-1">{ativo.contrato.observacoes}</p>
-                  <Button size="sm" className="mt-3" onClick={() => setIniciarOpen(true)}>Reenviar contrato</Button>
                 </div>
+              )}
+            </Card>
+
+            {/* Relatórios do Estágio */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="font-display font-semibold">Relatórios do Estágio</h3>
+                  <p className="text-xs text-muted-foreground">Relatórios de atividades enviados ao coordenador</p>
+                </div>
+                {(() => {
+                  const hasBlockingRelat = ativo.relatorios.some((r) => r.status === "Pendente" || r.status === "Aprovado");
+                  const podeEnviar = ativo.status === "Em Andamento" && !hasBlockingRelat;
+                  return (
+                    <Dialog open={relatorioOpen} onOpenChange={setRelatorioOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          className="gap-2"
+                          disabled={!podeEnviar}
+                          title={
+                            ativo.status !== "Em Andamento"
+                              ? "O estágio precisa estar em andamento."
+                              : hasBlockingRelat
+                              ? "Já existe um relatório pendente ou aprovado."
+                              : undefined
+                          }
+                        >
+                          <Plus className="h-4 w-4" /> Adicionar Relatório
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>Enviar relatório de atividades</DialogTitle></DialogHeader>
+                        <div className="space-y-4 py-2">
+                          <div>
+                            <Label htmlFor="titulo">Título do relatório</Label>
+                            <Input id="titulo" value={tituloRelat} onChange={(e) => setTituloRelat(e.target.value)} placeholder="Ex: Relatório Bimestral 2" />
+                          </div>
+                          <DocumentDropzone onFile={setArquivoRelat} />
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setRelatorioOpen(false)}>Cancelar</Button>
+                          <Button onClick={() => {
+                            if (!tituloRelat || !arquivoRelat) { toast.error("Preencha o título e anexe o relatório."); return; }
+                            enviarRelatorio(ativo.id, tituloRelat, arquivoRelat.name);
+                            toast.success("Relatório enviado para análise.");
+                            setRelatorioOpen(false); setTituloRelat(""); setArquivoRelat(null);
+                          }}><Send className="h-4 w-4 mr-2" /> Enviar</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  );
+                })()}
+              </div>
+
+              {ativo.relatorios.length > 0 ? (
+                <div
+                  className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6"
+                  style={{ scrollbarWidth: "thin" }}
+                >
+                  {ativo.relatorios.map((r) => (
+                    <Link
+                      key={r.id}
+                      to="/dashboard/aluno/relatorio/$processoId/$relatorioId"
+                      params={{ processoId: ativo.id, relatorioId: r.id }}
+                      className="group flex-none w-60 h-72 bg-card border rounded-3xl p-5 shadow-sm snap-start flex flex-col justify-between hover:shadow-md hover:border-primary/40 transition cursor-pointer"
+                    >
+                      <div>
+                        <div className="w-11 h-11 bg-accent rounded-2xl flex items-center justify-center mb-4">
+                          <FileText className="w-5 h-5 text-foreground/70" />
+                        </div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Relatório</p>
+                        <h4 className="text-base font-semibold leading-tight line-clamp-2">{r.titulo}</h4>
+                        <p className="text-xs text-muted-foreground mt-1.5">{r.atraso ? "Entregue com atraso" : "Entrega regular"}</p>
+                      </div>
+                      <div className="mt-auto">
+                        <StatusBadge status={r.status} />
+                        <p className="text-[11px] text-muted-foreground mt-3">
+                          {(() => {
+                            const evt = ativo.historico.slice().reverse().find((h) => h.evento.toLowerCase().includes(r.titulo.toLowerCase()));
+                            return `Movimentado em ${evt?.data ?? r.data_envio}`;
+                          })()}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhum relatório enviado ainda.</p>
               )}
             </Card>
 
