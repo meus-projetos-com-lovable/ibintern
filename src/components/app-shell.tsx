@@ -37,14 +37,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full bg-background">
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-sidebar">
-        <div className="flex items-center gap-2 px-6 py-5 border-b">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <GraduationCap className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-display font-semibold text-sm leading-tight">Ibmec</p>
-            <p className="text-xs text-muted-foreground leading-tight">Gestão de Estágios</p>
-          </div>
+        <div className="flex items-center justify-center px-6 py-5 border-b">
+          <img src={logoAsset.url} alt="Ibintern" className="h-10 w-auto" />
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {items.map((it) => {
