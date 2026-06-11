@@ -13,6 +13,7 @@ import { Route as AlunosRouteImport } from './routes/alunos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InboxCoordenadorRouteImport } from './routes/inbox.coordenador'
 import { Route as InboxAvaliadorRouteImport } from './routes/inbox.avaliador'
+import { Route as DashboardAlunoRouteImport } from './routes/dashboard.aluno'
 import { Route as DashboardAlunoIndexRouteImport } from './routes/dashboard.aluno.index'
 import { Route as DashboardAlunoContratoProcessoIdRouteImport } from './routes/dashboard.aluno.contrato.$processoId'
 import { Route as DashboardAlunoRelatorioProcessoIdRelatorioIdRouteImport } from './routes/dashboard.aluno.relatorio.$processoId.$relatorioId'
@@ -37,10 +38,15 @@ const InboxAvaliadorRoute = InboxAvaliadorRouteImport.update({
   path: '/inbox/avaliador',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardAlunoIndexRoute = DashboardAlunoIndexRouteImport.update({
-  id: '/dashboard/aluno/',
-  path: '/dashboard/aluno/',
+const DashboardAlunoRoute = DashboardAlunoRouteImport.update({
+  id: '/dashboard/aluno',
+  path: '/dashboard/aluno',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardAlunoIndexRoute = DashboardAlunoIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardAlunoRoute,
 } as any)
 const DashboardAlunoContratoProcessoIdRoute =
   DashboardAlunoContratoProcessoIdRouteImport.update({
@@ -50,14 +56,15 @@ const DashboardAlunoContratoProcessoIdRoute =
   } as any)
 const DashboardAlunoRelatorioProcessoIdRelatorioIdRoute =
   DashboardAlunoRelatorioProcessoIdRelatorioIdRouteImport.update({
-    id: '/dashboard/aluno/relatorio/$processoId/$relatorioId',
-    path: '/dashboard/aluno/relatorio/$processoId/$relatorioId',
-    getParentRoute: () => rootRouteImport,
+    id: '/relatorio/$processoId/$relatorioId',
+    path: '/relatorio/$processoId/$relatorioId',
+    getParentRoute: () => DashboardAlunoRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
   '/dashboard/aluno/': typeof DashboardAlunoIndexRoute
@@ -77,6 +84,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
   '/dashboard/aluno/': typeof DashboardAlunoIndexRoute
@@ -88,6 +96,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/alunos'
+    | '/dashboard/aluno'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
     | '/dashboard/aluno/'
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/alunos'
+    | '/dashboard/aluno'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
     | '/dashboard/aluno/'
@@ -116,10 +126,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlunosRoute: typeof AlunosRoute
+  DashboardAlunoRoute: typeof DashboardAlunoRouteWithChildren
   InboxAvaliadorRoute: typeof InboxAvaliadorRoute
   InboxCoordenadorRoute: typeof InboxCoordenadorRoute
-  DashboardAlunoIndexRoute: typeof DashboardAlunoIndexRoute
-  DashboardAlunoRelatorioProcessoIdRelatorioIdRoute: typeof DashboardAlunoRelatorioProcessoIdRelatorioIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,12 +161,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InboxAvaliadorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/aluno': {
+      id: '/dashboard/aluno'
+      path: '/dashboard/aluno'
+      fullPath: '/dashboard/aluno'
+      preLoaderRoute: typeof DashboardAlunoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/aluno/': {
       id: '/dashboard/aluno/'
-      path: '/dashboard/aluno'
+      path: '/'
       fullPath: '/dashboard/aluno/'
       preLoaderRoute: typeof DashboardAlunoIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardAlunoRoute
     }
     '/dashboard/aluno/contrato/$processoId': {
       id: '/dashboard/aluno/contrato/$processoId'
@@ -168,22 +184,37 @@ declare module '@tanstack/react-router' {
     }
     '/dashboard/aluno/relatorio/$processoId/$relatorioId': {
       id: '/dashboard/aluno/relatorio/$processoId/$relatorioId'
-      path: '/dashboard/aluno/relatorio/$processoId/$relatorioId'
+      path: '/relatorio/$processoId/$relatorioId'
       fullPath: '/dashboard/aluno/relatorio/$processoId/$relatorioId'
       preLoaderRoute: typeof DashboardAlunoRelatorioProcessoIdRelatorioIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardAlunoRoute
     }
   }
 }
 
+interface DashboardAlunoRouteChildren {
+  DashboardAlunoIndexRoute: typeof DashboardAlunoIndexRoute
+  DashboardAlunoContratoProcessoIdRoute: typeof DashboardAlunoContratoProcessoIdRoute
+  DashboardAlunoRelatorioProcessoIdRelatorioIdRoute: typeof DashboardAlunoRelatorioProcessoIdRelatorioIdRoute
+}
+
+const DashboardAlunoRouteChildren: DashboardAlunoRouteChildren = {
+  DashboardAlunoIndexRoute: DashboardAlunoIndexRoute,
+  DashboardAlunoContratoProcessoIdRoute: DashboardAlunoContratoProcessoIdRoute,
+  DashboardAlunoRelatorioProcessoIdRelatorioIdRoute:
+    DashboardAlunoRelatorioProcessoIdRelatorioIdRoute,
+}
+
+const DashboardAlunoRouteWithChildren = DashboardAlunoRoute._addFileChildren(
+  DashboardAlunoRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlunosRoute: AlunosRoute,
+  DashboardAlunoRoute: DashboardAlunoRouteWithChildren,
   InboxAvaliadorRoute: InboxAvaliadorRoute,
   InboxCoordenadorRoute: InboxCoordenadorRoute,
-  DashboardAlunoIndexRoute: DashboardAlunoIndexRoute,
-  DashboardAlunoRelatorioProcessoIdRelatorioIdRoute:
-    DashboardAlunoRelatorioProcessoIdRelatorioIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
