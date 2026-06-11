@@ -1,8 +1,9 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { LayoutDashboard, Inbox, Users, LogOut, GraduationCap } from "lucide-react";
+import { LayoutDashboard, Inbox, Users, LogOut } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
+import logoAsset from "@/assets/ibintern-logo.png.asset.json";
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles: Array<"aluno" | "secretaria" | "coordenador"> }
 
@@ -36,14 +37,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full bg-background">
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-sidebar">
-        <div className="flex items-center gap-2 px-6 py-5 border-b">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <GraduationCap className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-display font-semibold text-sm leading-tight">Ibmec</p>
-            <p className="text-xs text-muted-foreground leading-tight">Gestão de Estágios</p>
-          </div>
+        <div className="flex items-center justify-center px-6 py-5 border-b">
+          <img src={logoAsset.url} alt="Ibintern" className="h-10 w-auto" />
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {items.map((it) => {
@@ -86,12 +81,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between border-b bg-card px-4 py-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <GraduationCap className="h-4 w-4" />
-            </div>
-            <span className="font-display font-semibold text-sm">Ibmec Estágios</span>
-          </div>
+          <img src={logoAsset.url} alt="Ibintern" className="h-7 w-auto" />
           <Button variant="ghost" size="sm" onClick={() => { logout(); navigate({ to: "/" }); }}>Sair</Button>
         </header>
         <main className="flex-1 min-w-0">{children ?? <Outlet />}</main>

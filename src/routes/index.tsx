@@ -5,6 +5,7 @@ import { useAppStore, type Role } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import logoAsset from "@/assets/ibintern-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -39,14 +40,13 @@ function LoginPage() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       <div className="hidden lg:flex flex-col justify-between p-12 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/15 backdrop-blur">
-            <GraduationCap className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="font-display font-semibold text-lg leading-tight">Ibmec</p>
-            <p className="text-sm opacity-80 leading-tight">Gestão de Estágios</p>
-          </div>
+        <div className="flex items-center">
+          <img
+            src={logoAsset.url}
+            alt="Ibintern"
+            className="h-14 w-auto"
+            style={{ filter: "brightness(0) invert(1)" }}
+          />
         </div>
 
         <div className="max-w-md">
