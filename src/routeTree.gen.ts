@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as AlunosRouteImport } from './routes/alunos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InboxCoordenadorRouteImport } from './routes/inbox.coordenador'
@@ -18,6 +19,11 @@ import { Route as DashboardAlunoIndexRouteImport } from './routes/dashboard.alun
 import { Route as DashboardAlunoContratoProcessoIdRouteImport } from './routes/dashboard.aluno.contrato.$processoId'
 import { Route as DashboardAlunoRelatorioProcessoIdRelatorioIdRouteImport } from './routes/dashboard.aluno.relatorio.$processoId.$relatorioId'
 
+const PerfilRoute = PerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AlunosRoute = AlunosRouteImport.update({
   id: '/alunos',
   path: '/alunos',
@@ -64,6 +70,7 @@ const DashboardAlunoRelatorioProcessoIdRelatorioIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/perfil': typeof PerfilRoute
   '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/perfil': typeof PerfilRoute
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
   '/dashboard/aluno': typeof DashboardAlunoIndexRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/perfil': typeof PerfilRoute
   '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/alunos'
+    | '/perfil'
     | '/dashboard/aluno'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/alunos'
+    | '/perfil'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
     | '/dashboard/aluno'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/alunos'
+    | '/perfil'
     | '/dashboard/aluno'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlunosRoute: typeof AlunosRoute
+  PerfilRoute: typeof PerfilRoute
   DashboardAlunoRoute: typeof DashboardAlunoRouteWithChildren
   InboxAvaliadorRoute: typeof InboxAvaliadorRoute
   InboxCoordenadorRoute: typeof InboxCoordenadorRoute
@@ -133,6 +146,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/perfil': {
+      id: '/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof PerfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/alunos': {
       id: '/alunos'
       path: '/alunos'
@@ -212,6 +232,7 @@ const DashboardAlunoRouteWithChildren = DashboardAlunoRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlunosRoute: AlunosRoute,
+  PerfilRoute: PerfilRoute,
   DashboardAlunoRoute: DashboardAlunoRouteWithChildren,
   InboxAvaliadorRoute: InboxAvaliadorRoute,
   InboxCoordenadorRoute: InboxCoordenadorRoute,
