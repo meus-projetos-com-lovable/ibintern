@@ -46,6 +46,30 @@ export function InboxView({
     [avaliacoes, user]
   );
 
+  const downloadContrato = async () => {
+    if (!selecionado || !selecionado.contrato) return;
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`http://localhost:8000/contrato/${selecionado.contrato.id}/download/`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Erro ao baixar");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = selecionado.contrato.nome_arquivo || "contrato.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Download iniciado");
+    } catch (err) {
+      toast.error("Erro ao baixar o contrato.");
+    }
+  };
+
+
   const lista = useMemo(() => {
     return processos.filter((p) => {
       if (!p.contrato) return false;
@@ -208,7 +232,7 @@ export function InboxView({
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusBadge status={selecionado.contrato?.status ?? "Pendente"} />
-                    <Button variant="outline" size="sm" onClick={() => toast.success("Download iniciado")}>Baixar PDF</Button>
+                    <Button variant="outline" size="sm" onClick={downloadContrato}>Baixar PDF</Button>
                   </div>
                 </div>
 

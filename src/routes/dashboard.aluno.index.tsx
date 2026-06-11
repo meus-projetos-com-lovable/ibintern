@@ -77,8 +77,11 @@ function DashboardAluno() {
                           toast.error("Preencha a empresa e anexe o contrato.");
                           return;
                         }
-                        iniciarProcesso(user.id, empresa, arquivo.name);
-                        toast.success("Processo iniciado e contrato enviado para análise.");
+                        toast.promise(iniciarProcesso(user.id, empresa, arquivo), {
+                          loading: "Iniciando processo e enviando contrato...",
+                          success: "Processo iniciado e contrato enviado para análise!",
+                          error: "Erro ao iniciar processo."
+                        });
                         setIniciarOpen(false); setEmpresa(""); setArquivo(null);
                       }}
                     >
@@ -223,8 +226,11 @@ function DashboardAluno() {
                           <Button variant="outline" onClick={() => setRelatorioOpen(false)}>Cancelar</Button>
                           <Button onClick={() => {
                             if (!tituloRelat || !arquivoRelat) { toast.error("Preencha o título e anexe o relatório."); return; }
-                            enviarRelatorio(ativo.id, tituloRelat, arquivoRelat.name);
-                            toast.success("Relatório enviado para análise.");
+                            toast.promise(enviarRelatorio(ativo.id, tituloRelat, arquivoRelat), {
+                              loading: "Enviando relatório...",
+                              success: "Relatório enviado com sucesso!",
+                              error: "Erro ao enviar relatório."
+                            });
                             setRelatorioOpen(false); setTituloRelat(""); setArquivoRelat(null);
                           }}><Send className="h-4 w-4 mr-2" /> Enviar</Button>
                         </DialogFooter>

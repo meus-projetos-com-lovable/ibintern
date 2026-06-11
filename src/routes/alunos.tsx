@@ -74,8 +74,8 @@ function AlunosPage() {
     [alunos, busca]
   );
 
-  function onSubmit(data: FormData) {
-    const r = addAluno(data);
+  async function onSubmit(data: FormData) {
+    const r = await addAluno(data);
     if (!r.ok) { toast.error(r.error!); return; }
     toast.success("Aluno cadastrado com sucesso.");
     setOpen(false);

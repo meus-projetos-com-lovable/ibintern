@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAppStore } from "@/store/app-store";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
@@ -24,6 +24,53 @@ function RelatorioDetalhe() {
   const navigate = useNavigate();
   const processo = useAppStore((s) => s.processos.find((p) => p.id === processoId));
   const relatorio = processo?.relatorios.find((r) => r.id === relatorioId);
+
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!relatorio || !relatorio.id) return;
+    const fetchPdf = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch(`http://localhost:8000/relatorio/${relatorio.id}/download/`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error("Erro ao baixar");
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        setPdfUrl(url);
+      } catch (err) {
+        console.error("Erro ao carregar o PDF:", err);
+      }
+    };
+    fetchPdf();
+    return () => {
+      if (pdfUrl) window.URL.revokeObjectURL(pdfUrl);
+    };
+  }, [relatorio?.id]);
+
+  const downloadRelatorio = async () => {
+    if (!relatorio) return;
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`http://localhost:8000/relatorio/${relatorio.id}/download/`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Erro ao baixar");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${relatorio.titulo}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Download iniciado");
+    } catch (err) {
+      toast.error("Erro ao baixar o relatório.");
+    }
+  };
 
   const eventos = useMemo(() => {
     if (!processo || !relatorio) return [];
@@ -62,13 +109,13 @@ function RelatorioDetalhe() {
                 <FileText className="h-4 w-4 text-primary" />
                 <span className="font-medium truncate">{relatorio.titulo}.pdf</span>
               </div>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => toast.success("Download iniciado")}>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadRelatorio}>
                 <Download className="h-3.5 w-3.5" /> Baixar
               </Button>
             </div>
             <iframe
               title="Pré-visualização do relatório"
-              src={DEMO_PDF}
+              src={pdfUrl || DEMO_PDF}
               className="w-full h-[720px] bg-muted"
             />
           </Card>
