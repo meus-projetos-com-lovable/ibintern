@@ -199,20 +199,31 @@ function DashboardAluno() {
               ) : (
                 <div className="space-y-2">
                   {ativo.relatorios.map((r) => (
-                    <Link
-                      key={r.id}
-                      to="/dashboard/aluno/relatorio/$processoId/$relatorioId"
-                      params={{ processoId: ativo.id, relatorioId: r.id }}
-                      className="group flex items-center gap-3 rounded-md border p-3 hover:bg-accent/40 hover:border-primary/40 transition"
-                    >
-                      <FileText className="h-5 w-5 text-primary" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{r.titulo}</p>
-                        <p className="text-xs text-muted-foreground">Enviado em {r.data_envio}{r.atraso && " · com atraso"}</p>
-                      </div>
+                  <Link
+                    key={r.id}
+                    to="/dashboard/aluno/relatorio/$processoId/$relatorioId"
+                    params={{ processoId: ativo.id, relatorioId: r.id }}
+                    className="group flex items-center gap-3 rounded-md border p-3 hover:bg-accent/40 hover:border-primary/40 transition"
+                  >
+                    <FileText className="h-5 w-5 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{r.titulo}</p>
+                      <p className="text-xs text-muted-foreground">Enviado em {r.data_envio}{r.atraso && " · com atraso"}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
                       <StatusBadge status={r.status} />
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                    </Link>
+                      <span className="text-[10px] text-muted-foreground">
+                        {(() => {
+                          const evt = ativo.historico
+                            .slice()
+                            .reverse()
+                            .find((h) => h.evento.toLowerCase().includes(r.titulo.toLowerCase()) || h.evento.toLowerCase().includes("relatório"));
+                          return evt ? `mov. ${evt.data}` : `envio ${r.data_envio}`;
+                        })()}
+                      </span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
+                  </Link>
                   ))}
                 </div>
               )}
