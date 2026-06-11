@@ -60,10 +60,18 @@ export function AppShell({ children }: { children?: ReactNode }) {
           })}
         </nav>
         <div className="border-t p-4">
-          <div className="mb-3">
-            <p className="text-sm font-medium leading-tight">{user.nome}</p>
-            <p className="text-xs text-muted-foreground leading-tight capitalize">{user.role} · {user.unidade}</p>
-          </div>
+          <Link
+            to="/perfil"
+            className="mb-3 -mx-2 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-sidebar-accent transition-colors"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+              {user.nome.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium leading-tight truncate">{user.nome}</p>
+              <p className="text-xs text-muted-foreground leading-tight capitalize truncate">{user.role} · {user.unidade}</p>
+            </div>
+          </Link>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { logout(); navigate({ to: "/" }); }}>
             <LogOut className="h-4 w-4" /> Sair
           </Button>
