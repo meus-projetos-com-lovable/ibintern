@@ -31,13 +31,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
     <div className="flex min-h-screen w-full bg-background">
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center gap-2 px-6 py-5 border-b">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <GraduationCap className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-display font-semibold text-sm leading-tight">Ibmec</p>
-            <p className="text-xs text-muted-foreground leading-tight">Gestão de Estágios</p>
-          </div>
+          <img src="/logo.png" alt="IbIntern Logo" className="h-8 object-contain" />
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {items.map((it) => {
@@ -65,11 +59,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
             className="mb-3 -mx-2 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-sidebar-accent transition-colors"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-              {user.nome.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+              {user.username.slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium leading-tight truncate">{user.nome}</p>
-              <p className="text-xs text-muted-foreground leading-tight capitalize truncate">{user.role} · {user.unidade}</p>
+              <p className="text-sm font-medium leading-tight truncate">{user.username}</p>
+              <p className="text-xs text-muted-foreground leading-tight capitalize truncate">{user.role}</p>
             </div>
           </Link>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { logout(); navigate({ to: "/" }); }}>
@@ -81,10 +75,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between border-b bg-card px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <GraduationCap className="h-4 w-4" />
-            </div>
-            <span className="font-display font-semibold text-sm">Ibmec Estágios</span>
+            <img src="/logo.png" alt="IbIntern Logo" className="h-6 object-contain" />
           </div>
           <Button variant="ghost" size="sm" onClick={() => { logout(); navigate({ to: "/" }); }}>Sair</Button>
         </header>
@@ -106,16 +97,41 @@ export function PageHeader({ title, description, action }: { title: string; desc
   );
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  // Processo
+  aberto: "Aberto",
+  pendente: "Pendente",
+  em_andamento: "Em Andamento",
+  reprovado: "Reprovado",
+  concluido: "Concluído",
+  cancelado: "Cancelado",
+  // Contrato
+  analise_sec: "Análise Secretaria",
+  aprovado: "Aprovado",
+  // Relatório
+  aguardando_validacao: "Aguardando Validação",
+  analise_coord: "Análise Coordenação",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  pendente: "bg-card-alt text-foreground/70 border-border",
+  aberto: "bg-card-alt text-foreground/70 border-border",
+  aguardando_validacao: "bg-card-alt text-foreground/70 border-border",
+  em_andamento: "bg-primary/10 text-primary border-primary/20",
+  analise_sec: "bg-primary/10 text-primary border-primary/20",
+  analise_coord: "bg-primary/10 text-primary border-primary/20",
+  aprovado: "bg-success text-success-foreground border-success/30",
+  concluido: "bg-success text-success-foreground border-success/30",
+  reprovado: "bg-destructive/10 text-destructive border-destructive/20",
+  cancelado: "bg-destructive/10 text-destructive border-destructive/20",
+};
+
 export function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    Pendente: "bg-card-alt text-foreground/70 border-border",
-    "Em Andamento": "bg-primary/10 text-primary border-primary/20",
-    Aprovado: "bg-success text-success-foreground border-success/30",
-    Reprovado: "bg-destructive/10 text-destructive border-destructive/20",
-  };
+  const label = STATUS_LABELS[status] ?? status;
+  const style = STATUS_STYLES[status] ?? "bg-muted text-muted-foreground";
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles[status] ?? "bg-muted text-muted-foreground"}`}>
-      {status}
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${style}`}>
+      {label}
     </span>
   );
 }
