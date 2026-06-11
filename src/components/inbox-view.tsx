@@ -31,12 +31,20 @@ export function InboxView({
 }: InboxViewProps) {
   const processos = useAppStore((s) => s.processos);
   const avaliarContrato = useAppStore((s) => s.avaliarContrato);
+  const user = useAppStore((s) => s.user);
+  const avaliacoes = useAppStore((s) => s.avaliacoes);
 
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState<ProcessoStatus | "Todos">("Todos");
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [showJustif, setShowJustif] = useState(false);
   const [justificativa, setJustificativa] = useState("");
+  const [aba, setAba] = useState<"fila" | "log">("fila");
+
+  const meuLog = useMemo(
+    () => (user ? avaliacoes.filter((a) => a.avaliador_id === user.id) : []),
+    [avaliacoes, user]
+  );
 
   const lista = useMemo(() => {
     return processos.filter((p) => {
