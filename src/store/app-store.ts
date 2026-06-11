@@ -46,6 +46,7 @@ export const useAppStore = create<AppState>()(
       user: null,
       alunos: MOCK_ALUNOS,
       processos: MOCK_PROCESSOS,
+      avaliacoes: [],
 
       login: (role) => {
         const profiles: Record<Role, AuthUser> = {
