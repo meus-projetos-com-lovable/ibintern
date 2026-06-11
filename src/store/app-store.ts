@@ -97,6 +97,8 @@ export const useAppStore = create<AppState>()(
 
       avaliarContrato: (processoId, veredito, justificativa) => {
         const now = new Date().toISOString().slice(0, 10);
+        const u = get().user;
+        const proc = get().processos.find((p) => p.id === processoId);
         set({
           processos: get().processos.map((p) => {
             if (p.id !== processoId || !p.contrato) return p;
@@ -107,10 +109,28 @@ export const useAppStore = create<AppState>()(
               contrato: { ...p.contrato, status: veredito, observacoes: justificativa },
               historico: [
                 ...p.historico,
-                { data: now, evento: veredito === "Aprovado" ? "Contrato aprovado pela Secretaria" : `Contrato reprovado: ${justificativa ?? "sem justificativa"}` },
+                { data: now, evento: `${veredito === "Aprovado" ? "Contrato aprovado" : `Contrato reprovado: ${justificativa ?? "sem justificativa"}`}${u ? ` — por ${u.nome}` : ""}` },
               ],
             };
           }),
+          avaliacoes: u && proc
+            ? [
+                {
+                  id: `av${Date.now()}`,
+                  data: now,
+                  avaliador_id: u.id,
+                  avaliador_nome: u.nome,
+                  avaliador_role: u.role,
+                  processo_id: processoId,
+                  aluno_nome: proc.aluno_nome,
+                  tipo: "Contrato",
+                  alvo: proc.contrato?.nome_arquivo ?? "Contrato",
+                  veredito,
+                  justificativa,
+                },
+                ...get().avaliacoes,
+              ]
+            : get().avaliacoes,
         });
       },
 
