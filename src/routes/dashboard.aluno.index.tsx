@@ -119,53 +119,10 @@ function DashboardAluno() {
             </Card>
 
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="font-display font-semibold">Contrato</h3>
-                  <p className="text-xs text-muted-foreground">Termo de Compromisso de Estágio</p>
-                </div>
-                {ativo.contrato && <StatusBadge status={ativo.contrato.status} />}
-              </div>
-              {ativo.contrato && (
-                <Link
-                  to="/dashboard/aluno/contrato/$processoId"
-                  params={{ processoId: ativo.id }}
-                  className="group flex items-center gap-3 rounded-md border bg-card-alt/40 p-3 hover:bg-accent/40 hover:border-primary/40 transition"
-                >
-                  <FileText className="h-5 w-5 text-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{ativo.contrato.nome_arquivo}</p>
-                    <p className="text-xs text-muted-foreground">Enviado em {ativo.contrato.data_envio} · clique para ver detalhes</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <StatusBadge status={ativo.contrato.status} />
-                    <span className="text-[10px] text-muted-foreground">
-                      {(() => {
-                        const evt = ativo.historico
-                          .slice()
-                          .reverse()
-                          .find((h) => h.evento.toLowerCase().includes("contrato"));
-                        return evt ? `mov. ${evt.data}` : `envio ${ativo.contrato!.data_envio}`;
-                      })()}
-                    </span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
-                </Link>
-              )}
-              {ativo.contrato?.status === "Reprovado" && ativo.contrato.observacoes && (
-                <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
-                  <p className="font-medium text-destructive flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Reprovado</p>
-                  <p className="text-foreground/80 mt-1">{ativo.contrato.observacoes}</p>
-                  <Button size="sm" className="mt-3" onClick={() => setIniciarOpen(true)}>Reenviar contrato</Button>
-                </div>
-              )}
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-display font-semibold">Relatórios de Atividades</h3>
-                  <p className="text-xs text-muted-foreground">Entrega obrigatória a cada 6 meses</p>
+                  <h3 className="font-display font-semibold">Documentos do Estágio</h3>
+                  <p className="text-xs text-muted-foreground">Contrato e relatórios de atividades</p>
                 </div>
                 {ativo.status === "Em Andamento" && (
                   <Dialog open={relatorioOpen} onOpenChange={setRelatorioOpen}>
@@ -194,37 +151,83 @@ function DashboardAluno() {
                   </Dialog>
                 )}
               </div>
-              {ativo.relatorios.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-6 text-center">Nenhum relatório enviado ainda.</p>
-              ) : (
-                <div className="space-y-2">
-                  {ativo.relatorios.map((r) => (
+
+              <div
+                className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6"
+                style={{ scrollbarWidth: "thin" }}
+              >
+                {ativo.contrato && (
+                  <Link
+                    to="/dashboard/aluno/contrato/$processoId"
+                    params={{ processoId: ativo.id }}
+                    className="group flex-none w-60 h-72 bg-card border rounded-3xl p-5 shadow-sm snap-start flex flex-col justify-between hover:shadow-md hover:border-primary/40 transition cursor-pointer"
+                  >
+                    <div>
+                      <div className="w-11 h-11 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+                        <FileText className="w-5 h-5 text-primary" />
+                      </div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Contrato</p>
+                      <h4 className="text-base font-semibold leading-tight line-clamp-2">{ativo.contrato.nome_arquivo}</h4>
+                      <p className="text-xs text-muted-foreground mt-1.5 truncate">{ativo.contrato.nome_empresa ?? ativo.empresa}</p>
+                    </div>
+                    <div className="mt-auto">
+                      <StatusBadge status={ativo.contrato.status} />
+                      <p className="text-[11px] text-muted-foreground mt-3">
+                        {(() => {
+                          const evt = ativo.historico.slice().reverse().find((h) => h.evento.toLowerCase().includes("contrato"));
+                          return `Movimentado em ${evt?.data ?? ativo.contrato!.data_envio}`;
+                        })()}
+                      </p>
+                    </div>
+                  </Link>
+                )}
+
+                {ativo.relatorios.map((r) => (
                   <Link
                     key={r.id}
                     to="/dashboard/aluno/relatorio/$processoId/$relatorioId"
                     params={{ processoId: ativo.id, relatorioId: r.id }}
-                    className="group flex items-center gap-3 rounded-md border p-3 hover:bg-accent/40 hover:border-primary/40 transition"
+                    className="group flex-none w-60 h-72 bg-card border rounded-3xl p-5 shadow-sm snap-start flex flex-col justify-between hover:shadow-md hover:border-primary/40 transition cursor-pointer"
                   >
-                    <FileText className="h-5 w-5 text-primary shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{r.titulo}</p>
-                      <p className="text-xs text-muted-foreground">Enviado em {r.data_envio}{r.atraso && " · com atraso"}</p>
+                    <div>
+                      <div className="w-11 h-11 bg-accent rounded-2xl flex items-center justify-center mb-4">
+                        <FileText className="w-5 h-5 text-foreground/70" />
+                      </div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Relatório</p>
+                      <h4 className="text-base font-semibold leading-tight line-clamp-2">{r.titulo}</h4>
+                      <p className="text-xs text-muted-foreground mt-1.5">{r.atraso ? "Entregue com atraso" : "Entrega regular"}</p>
                     </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="mt-auto">
                       <StatusBadge status={r.status} />
-                      <span className="text-[10px] text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground mt-3">
                         {(() => {
-                          const evt = ativo.historico
-                            .slice()
-                            .reverse()
-                            .find((h) => h.evento.toLowerCase().includes(r.titulo.toLowerCase()) || h.evento.toLowerCase().includes("relatório"));
-                          return evt ? `mov. ${evt.data}` : `envio ${r.data_envio}`;
+                          const evt = ativo.historico.slice().reverse().find((h) => h.evento.toLowerCase().includes(r.titulo.toLowerCase()));
+                          return `Movimentado em ${evt?.data ?? r.data_envio}`;
                         })()}
-                      </span>
+                      </p>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
                   </Link>
-                  ))}
+                ))}
+
+                {ativo.status === "Em Andamento" && (
+                  <button
+                    onClick={() => setRelatorioOpen(true)}
+                    className="flex-none w-60 h-72 rounded-3xl border-2 border-dashed border-border bg-card-alt/30 snap-start flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition cursor-pointer"
+                  >
+                    <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Plus className="w-7 h-7 text-primary" />
+                    </div>
+                    <p className="font-medium text-sm">Novo Relatório</p>
+                    <p className="text-xs">Upload de PDF</p>
+                  </button>
+                )}
+              </div>
+
+              {ativo.contrato?.status === "Reprovado" && ativo.contrato.observacoes && (
+                <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                  <p className="font-medium text-destructive flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Contrato reprovado</p>
+                  <p className="text-foreground/80 mt-1">{ativo.contrato.observacoes}</p>
+                  <Button size="sm" className="mt-3" onClick={() => setIniciarOpen(true)}>Reenviar contrato</Button>
                 </div>
               )}
             </Card>
