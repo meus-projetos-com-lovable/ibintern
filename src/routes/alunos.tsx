@@ -61,6 +61,10 @@ function AlunosPage() {
   const [open, setOpen] = useState(false);
   const [busca, setBusca] = useState("");
 
+  const [detalhesAluno, setDetalhesAluno] = useState<typeof alunos[number] | null>(null);
+  const [processosAluno, setProcessosAluno] = useState<Processo[]>([]);
+  const [openProcessos, setOpenProcessos] = useState(false);
+
   const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { nome: "", matricula: "", cpf: "", curso: "", email: "" } });
 
   const filtrados = useMemo(
