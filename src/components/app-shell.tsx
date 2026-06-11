@@ -1,8 +1,9 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { LayoutDashboard, Inbox, Users, LogOut, GraduationCap } from "lucide-react";
+import { LayoutDashboard, Inbox, Users, LogOut } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
+import logoAsset from "@/assets/ibintern-logo.png.asset.json";
 
 interface NavItem { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles: Array<"aluno" | "secretaria" | "coordenador"> }
 
