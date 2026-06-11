@@ -31,12 +31,20 @@ export function InboxView({
 }: InboxViewProps) {
   const processos = useAppStore((s) => s.processos);
   const avaliarContrato = useAppStore((s) => s.avaliarContrato);
+  const user = useAppStore((s) => s.user);
+  const avaliacoes = useAppStore((s) => s.avaliacoes);
 
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState<ProcessoStatus | "Todos">("Todos");
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [showJustif, setShowJustif] = useState(false);
   const [justificativa, setJustificativa] = useState("");
+  const [aba, setAba] = useState<"fila" | "log">("fila");
+
+  const meuLog = useMemo(
+    () => (user ? avaliacoes.filter((a) => a.avaliador_id === user.id) : []),
+    [avaliacoes, user]
+  );
 
   const lista = useMemo(() => {
     return processos.filter((p) => {
@@ -83,46 +91,103 @@ export function InboxView({
 
         <div className="flex-1 grid md:grid-cols-[380px_1fr] min-h-0">
           <aside className="border-r flex flex-col min-h-0">
-            <div className="p-4 border-b">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome ou matrícula..."
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
+            <div className="flex border-b">
+              <button
+                onClick={() => setAba("fila")}
+                className={`flex-1 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                  aba === "fila" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Fila ({lista.length})
+              </button>
+              <button
+                onClick={() => setAba("log")}
+                className={`flex-1 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                  aba === "log" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Meu Histórico ({meuLog.length})
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {lista.length === 0 ? (
-                <div className="text-center py-12 px-4">
-                  <Inbox className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm font-medium">Nenhum processo na fila</p>
-                  <p className="text-xs text-muted-foreground mt-1">Você está em dia.</p>
+
+            {aba === "fila" ? (
+              <>
+                <div className="p-4 border-b">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome ou matrícula..."
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
                 </div>
-              ) : (
-                lista.map((p) => {
-                  const active = selecionado?.id === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => { setSelecionadoId(p.id); setShowJustif(false); setJustificativa(""); }}
-                      className={`w-full text-left rounded-lg border p-3 transition-all ${
-                        active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/40"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="font-medium text-sm truncate">{p.aluno_nome}</p>
-                        <StatusBadge status={p.contrato?.status ?? "Pendente"} />
-                      </div>
-                      <p className="text-xs text-muted-foreground">{p.matricula} · {p.curso}</p>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">→ {p.empresa}</p>
-                    </button>
-                  );
-                })
-              )}
-            </div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                  {lista.length === 0 ? (
+                    <div className="text-center py-12 px-4">
+                      <Inbox className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm font-medium">Nenhum processo na fila</p>
+                      <p className="text-xs text-muted-foreground mt-1">Você está em dia.</p>
+                    </div>
+                  ) : (
+                    lista.map((p) => {
+                      const active = selecionado?.id === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => { setSelecionadoId(p.id); setShowJustif(false); setJustificativa(""); }}
+                          className={`w-full text-left rounded-lg border p-3 transition-all ${
+                            active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/40"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="font-medium text-sm truncate">{p.aluno_nome}</p>
+                            <StatusBadge status={p.contrato?.status ?? "Pendente"} />
+                          </div>
+                          <p className="text-xs text-muted-foreground">{p.matricula} · {p.curso}</p>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">→ {p.empresa}</p>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {meuLog.length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm font-medium">Nenhuma avaliação registrada</p>
+                    <p className="text-xs text-muted-foreground mt-1">Suas decisões aparecerão aqui.</p>
+                  </div>
+                ) : (
+                  meuLog.map((a) => {
+                    const isReprov = a.veredito === "Reprovado";
+                    return (
+                      <button
+                        key={a.id}
+                        onClick={() => { setSelecionadoId(a.processo_id); setAba("fila"); }}
+                        className="w-full text-left rounded-lg border border-border p-3 hover:border-primary/40 hover:bg-muted/40 transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-medium text-sm truncate">{a.aluno_nome}</p>
+                          <StatusBadge status={a.veredito} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          <span className={isReprov ? "text-destructive font-medium" : "text-foreground/70 font-medium"}>{a.tipo}</span>
+                          {" · "}{a.alvo}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{a.data}</p>
+                        {a.justificativa && (
+                          <p className="text-[11px] text-muted-foreground mt-1 italic line-clamp-2">"{a.justificativa}"</p>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </aside>
 
           <section className="flex flex-col min-h-0 bg-muted/30">

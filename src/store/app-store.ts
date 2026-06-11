@@ -12,10 +12,25 @@ export interface AuthUser {
   unidade: string;
 }
 
+export interface AvaliacaoLog {
+  id: string;
+  data: string;
+  avaliador_id: string;
+  avaliador_nome: string;
+  avaliador_role: Role;
+  processo_id: string;
+  aluno_nome: string;
+  tipo: "Contrato" | "Relatório";
+  alvo: string;
+  veredito: ProcessoStatus;
+  justificativa?: string;
+}
+
 interface AppState {
   user: AuthUser | null;
   alunos: Aluno[];
   processos: Processo[];
+  avaliacoes: AvaliacaoLog[];
   login: (role: Role) => void;
   logout: () => void;
   addAluno: (a: Omit<Aluno, "id">) => { ok: boolean; error?: string };
@@ -31,6 +46,7 @@ export const useAppStore = create<AppState>()(
       user: null,
       alunos: MOCK_ALUNOS,
       processos: MOCK_PROCESSOS,
+      avaliacoes: [],
 
       login: (role) => {
         const profiles: Record<Role, AuthUser> = {
@@ -81,6 +97,8 @@ export const useAppStore = create<AppState>()(
 
       avaliarContrato: (processoId, veredito, justificativa) => {
         const now = new Date().toISOString().slice(0, 10);
+        const u = get().user;
+        const proc = get().processos.find((p) => p.id === processoId);
         set({
           processos: get().processos.map((p) => {
             if (p.id !== processoId || !p.contrato) return p;
@@ -91,10 +109,28 @@ export const useAppStore = create<AppState>()(
               contrato: { ...p.contrato, status: veredito, observacoes: justificativa },
               historico: [
                 ...p.historico,
-                { data: now, evento: veredito === "Aprovado" ? "Contrato aprovado pela Secretaria" : `Contrato reprovado: ${justificativa ?? "sem justificativa"}` },
+                { data: now, evento: `${veredito === "Aprovado" ? "Contrato aprovado" : `Contrato reprovado: ${justificativa ?? "sem justificativa"}`}${u ? ` — por ${u.nome}` : ""}` },
               ],
             };
           }),
+          avaliacoes: u && proc
+            ? [
+                {
+                  id: `av${Date.now()}`,
+                  data: now,
+                  avaliador_id: u.id,
+                  avaliador_nome: u.nome,
+                  avaliador_role: u.role,
+                  processo_id: processoId,
+                  aluno_nome: proc.aluno_nome,
+                  tipo: "Contrato",
+                  alvo: proc.contrato?.nome_arquivo ?? "Contrato",
+                  veredito,
+                  justificativa,
+                },
+                ...get().avaliacoes,
+              ]
+            : get().avaliacoes,
         });
       },
 
@@ -117,6 +153,9 @@ export const useAppStore = create<AppState>()(
 
       avaliarRelatorio: (processoId, relatorioId, veredito, justificativa) => {
         const now = new Date().toISOString().slice(0, 10);
+        const u = get().user;
+        const proc = get().processos.find((p) => p.id === processoId);
+        const rel = proc?.relatorios.find((r) => r.id === relatorioId);
         set({
           processos: get().processos.map((p) => {
             if (p.id !== processoId) return p;
@@ -127,10 +166,28 @@ export const useAppStore = create<AppState>()(
               ),
               historico: [
                 ...p.historico,
-                { data: now, evento: `Relatório avaliado: ${veredito}${justificativa ? ` — ${justificativa}` : ""}` },
+                { data: now, evento: `Relatório avaliado: ${veredito}${justificativa ? ` — ${justificativa}` : ""}${u ? ` — por ${u.nome}` : ""}` },
               ],
             };
           }),
+          avaliacoes: u && proc
+            ? [
+                {
+                  id: `av${Date.now()}`,
+                  data: now,
+                  avaliador_id: u.id,
+                  avaliador_nome: u.nome,
+                  avaliador_role: u.role,
+                  processo_id: processoId,
+                  aluno_nome: proc.aluno_nome,
+                  tipo: "Relatório",
+                  alvo: rel?.titulo ?? "Relatório",
+                  veredito,
+                  justificativa,
+                },
+                ...get().avaliacoes,
+              ]
+            : get().avaliacoes,
         });
       },
     }),
