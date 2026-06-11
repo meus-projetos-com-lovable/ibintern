@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/store/app-store";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
@@ -16,9 +17,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Search, UserPlus, MoreVertical, Eye, FileText } from "lucide-react";
+import { Plus, Search, UserPlus, MoreVertical, Eye, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import type { Processo } from "@/lib/mock-data";
+import { alunos as alunosApi, processos as processosApi } from "@/lib/api/endpoints";
+import type { Aluno, NestedProcesso } from "@/lib/api/types";
+import { STATUS_PROCESSO_LABEL } from "@/lib/api/types";
 
 export const Route = createFileRoute("/alunos")({
   head: () => ({
@@ -48,38 +51,57 @@ const schema = z.object({
   nome: z.string().min(3, "Nome obrigatório"),
   matricula: z.string().min(4, "Matrícula obrigatória"),
   cpf: z.string().refine(validaCPF, "CPF inválido"),
-  curso: z.string().min(2, "Curso obrigatório"),
+  curso: z.coerce.number().min(1, "Curso obrigatório"),
   email: z.string().email("E-mail inválido"),
+  senha: z.string().min(6, "Senha obrigatória (mín. 6 caracteres)"),
+  unidade: z.string().min(1, "Unidade obrigatória"),
+  periodo: z.coerce.number().min(1).max(10),
 });
 type FormData = z.infer<typeof schema>;
 
 function AlunosPage() {
-  const alunos = useAppStore((s) => s.alunos);
-  const addAluno = useAppStore((s) => s.addAluno);
-  const processos = useAppStore((s) => s.processos);
+  const user = useAppStore((s) => s.user);
+  const queryClient = useQueryClient();
+
+  const { data: alunosData, isLoading } = useQuery({
+    queryKey: ["alunos"],
+    queryFn: () => alunosApi.listar(),
+    enabled: !!user,
+  });
+
+  const alunosList: Aluno[] = alunosData?.results ?? [];
+
+  const criarAluno = useMutation({
+    mutationFn: alunosApi.criar,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alunos"] });
+      toast.success("Aluno cadastrado com sucesso.");
+      setOpen(false);
+      form.reset();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
 
   const [open, setOpen] = useState(false);
   const [busca, setBusca] = useState("");
 
-  const [detalhesAluno, setDetalhesAluno] = useState<typeof alunos[number] | null>(null);
-  const [processosAluno, setProcessosAluno] = useState<Processo[]>([]);
+  const [detalhesAluno, setDetalhesAluno] = useState<Aluno | null>(null);
+  const [processosAluno, setProcessosAluno] = useState<NestedProcesso[]>([]);
   const [openProcessos, setOpenProcessos] = useState(false);
 
-  const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { nome: "", matricula: "", cpf: "", curso: "", email: "" } });
+  const form = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { nome: "", matricula: "", cpf: "", curso: 1, email: "", senha: "", unidade: "barra", periodo: 1 },
+  });
 
-  const filtrados = useMemo(
-    () => alunos.filter((a) =>
-      busca === "" || a.nome.toLowerCase().includes(busca.toLowerCase()) || a.matricula.includes(busca)
-    ),
-    [alunos, busca]
+  const filtrados = alunosList.filter((a) =>
+    busca === "" || a.nome.toLowerCase().includes(busca.toLowerCase()) || a.matricula.includes(busca)
   );
 
   function onSubmit(data: FormData) {
-    const r = addAluno(data);
-    if (!r.ok) { toast.error(r.error!); return; }
-    toast.success("Aluno cadastrado com sucesso.");
-    setOpen(false);
-    form.reset();
+    criarAluno.mutate(data);
   }
 
   return (
@@ -107,15 +129,32 @@ function AlunosPage() {
                       <Input {...form.register("cpf")} placeholder="000.000.000-00" />
                     </FieldRow>
                   </div>
-                  <FieldRow label="Curso" error={form.formState.errors.curso?.message}>
-                    <Input {...form.register("curso")} />
-                  </FieldRow>
                   <FieldRow label="E-mail" error={form.formState.errors.email?.message}>
                     <Input type="email" {...form.register("email")} />
                   </FieldRow>
+                  <FieldRow label="Senha inicial" error={form.formState.errors.senha?.message}>
+                    <Input type="password" {...form.register("senha")} />
+                  </FieldRow>
+                  <div className="grid grid-cols-3 gap-3">
+                    <FieldRow label="Curso (ID)" error={form.formState.errors.curso?.message}>
+                      <Input type="number" {...form.register("curso")} />
+                    </FieldRow>
+                    <FieldRow label="Período" error={form.formState.errors.periodo?.message}>
+                      <Input type="number" min={1} max={10} {...form.register("periodo")} />
+                    </FieldRow>
+                    <FieldRow label="Unidade" error={form.formState.errors.unidade?.message}>
+                      <select {...form.register("unidade")} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+                        <option value="barra">Barra</option>
+                        <option value="botafogo">Botafogo</option>
+                      </select>
+                    </FieldRow>
+                  </div>
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-                    <Button type="submit">Salvar</Button>
+                    <Button type="submit" disabled={criarAluno.isPending}>
+                      {criarAluno.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Salvar
+                    </Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -131,7 +170,11 @@ function AlunosPage() {
             </div>
           </div>
 
-          {filtrados.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filtrados.length === 0 ? (
             <div className="text-center py-16 px-4">
               <UserPlus className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
               <p className="font-medium">Nenhum aluno encontrado</p>
@@ -144,40 +187,37 @@ function AlunosPage() {
                   <tr>
                     <th className="px-4 py-3 font-medium">Nome</th>
                     <th className="px-4 py-3 font-medium">Matrícula</th>
-                    <th className="px-4 py-3 font-medium">Curso</th>
                     <th className="px-4 py-3 font-medium">E-mail</th>
+                    <th className="px-4 py-3 font-medium">Processos</th>
                     <th className="px-4 py-3 font-medium w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtrados.map((a) => {
-                    const procs = processos.filter((p) => p.aluno_id === a.id);
-                    return (
-                      <tr key={a.id} className="border-t hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium">{a.nome}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{a.matricula}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{a.curso}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{a.email}</td>
-                        <td className="px-4 py-3 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setDetalhesAluno(a)}>
-                                <Eye className="mr-2 h-4 w-4" /> Ver detalhes do aluno
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setProcessosAluno(procs); setOpenProcessos(true); }}>
-                                <FileText className="mr-2 h-4 w-4" /> Ver processo do aluno
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {filtrados.map((a) => (
+                    <tr key={a.matricula} className="border-t hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 font-medium">{a.nome}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{a.matricula}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{a.email}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{a.processos?.length ?? 0}</td>
+                      <td className="px-4 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setDetalhesAluno(a)}>
+                              <Eye className="mr-2 h-4 w-4" /> Ver detalhes do aluno
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setProcessosAluno(a.processos ?? []); setOpenProcessos(true); }}>
+                              <FileText className="mr-2 h-4 w-4" /> Ver processos do aluno
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -193,26 +233,14 @@ function AlunosPage() {
           </DialogHeader>
           {detalhesAluno && (
             <div className="space-y-3 text-sm py-2">
-              <div className="flex justify-between border-b border-dashed pb-2">
-                <span className="text-muted-foreground">Nome</span>
-                <span className="font-medium">{detalhesAluno.nome}</span>
-              </div>
-              <div className="flex justify-between border-b border-dashed pb-2">
-                <span className="text-muted-foreground">Matrícula</span>
-                <span className="font-medium">{detalhesAluno.matricula}</span>
-              </div>
-              <div className="flex justify-between border-b border-dashed pb-2">
-                <span className="text-muted-foreground">CPF</span>
-                <span className="font-medium">{detalhesAluno.cpf}</span>
-              </div>
-              <div className="flex justify-between border-b border-dashed pb-2">
-                <span className="text-muted-foreground">Curso</span>
-                <span className="font-medium">{detalhesAluno.curso}</span>
-              </div>
-              <div className="flex justify-between border-b border-dashed pb-2">
-                <span className="text-muted-foreground">E-mail</span>
-                <span className="font-medium">{detalhesAluno.email}</span>
-              </div>
+              <DetailRow label="Nome" value={detalhesAluno.nome} />
+              <DetailRow label="Matrícula" value={detalhesAluno.matricula} />
+              <DetailRow label="CPF" value={detalhesAluno.cpf} />
+              <DetailRow label="E-mail" value={detalhesAluno.email} />
+              <DetailRow label="Unidade" value={detalhesAluno.unidade} />
+              <DetailRow label="Período" value={String(detalhesAluno.periodo)} />
+              <DetailRow label="Ativo" value={detalhesAluno.is_ativo ? "Sim" : "Não"} />
+              <DetailRow label="Aceite LGPD" value={detalhesAluno.aceite_lgpd ? "Sim" : "Não"} />
             </div>
           )}
         </DialogContent>
@@ -231,30 +259,11 @@ function AlunosPage() {
               {processosAluno.map((p) => (
                 <Card key={p.id} className="p-4 border">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-sm">{p.empresa}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{p.matricula} · {p.curso}</p>
-                    </div>
-                    <span className={`text-xs rounded-full border px-2 py-0.5 ${
-                      p.status === "Aprovado" ? "bg-success/10 text-success border-success/30" :
-                      p.status === "Reprovado" ? "bg-destructive/10 text-destructive border-destructive/30" :
-                      p.status === "Em Andamento" ? "bg-primary/10 text-primary border-primary/30" :
-                      "bg-muted text-muted-foreground border-border"
-                    }`}>
-                      {p.status}
+                    <p className="font-medium text-sm">{p.nome_empresa}</p>
+                    <span className="text-xs rounded-full border px-2 py-0.5 bg-muted text-muted-foreground">
+                      {STATUS_PROCESSO_LABEL[p.status] ?? p.status}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Criado em {p.criado_em}</p>
-                  {p.contrato && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Contrato: <span className="font-medium">{p.contrato.nome_arquivo}</span> — {p.contrato.status}
-                    </p>
-                  )}
-                  {p.relatorios.length > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Relatórios: {p.relatorios.length} enviado(s)
-                    </p>
-                  )}
                 </Card>
               ))}
             </div>
@@ -262,6 +271,15 @@ function AlunosPage() {
         </DialogContent>
       </Dialog>
     </AppShell>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between border-b border-dashed pb-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
   );
 }
 
