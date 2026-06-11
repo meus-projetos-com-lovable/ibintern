@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { GraduationCap, Users, ClipboardCheck } from "lucide-react";
-import { useAppStore } from "@/store/app-store";
+import { useAppStore, type Role } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -26,6 +27,14 @@ function LoginPage() {
       navigate({ to: dest });
     }
   }, [user, navigate]);
+
+  const handleLogin = (role: Role) => {
+    toast.promise(login(role), {
+      loading: "Autenticando...",
+      success: "Login realizado com sucesso!",
+      error: (err) => `Erro no login: ${err.message || "Credenciais inválidas"}`,
+    });
+  };
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
@@ -64,8 +73,8 @@ function LoginPage() {
             <Card
               role="button"
               tabIndex={0}
-              onClick={() => login("aluno")}
-              onKeyDown={(e) => e.key === "Enter" && login("aluno")}
+              onClick={() => handleLogin("aluno")}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin("aluno")}
               className="cursor-pointer p-5 hover:border-primary hover:shadow-md transition-all group"
             >
               <div className="flex items-center gap-4">
@@ -82,8 +91,8 @@ function LoginPage() {
             <Card
               role="button"
               tabIndex={0}
-              onClick={() => login("secretaria")}
-              onKeyDown={(e) => e.key === "Enter" && login("secretaria")}
+              onClick={() => handleLogin("secretaria")}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin("secretaria")}
               className="cursor-pointer p-5 hover:border-primary hover:shadow-md transition-all group"
             >
               <div className="flex items-center gap-4">
@@ -100,8 +109,8 @@ function LoginPage() {
             <Card
               role="button"
               tabIndex={0}
-              onClick={() => login("coordenador")}
-              onKeyDown={(e) => e.key === "Enter" && login("coordenador")}
+              onClick={() => handleLogin("coordenador")}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin("coordenador")}
               className="cursor-pointer p-5 hover:border-primary hover:shadow-md transition-all group"
             >
               <div className="flex items-center gap-4">

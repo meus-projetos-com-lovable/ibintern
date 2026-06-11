@@ -19,9 +19,15 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  const syncData = useAppStore((s) => s.syncData);
+
   useEffect(() => {
-    if (!user) navigate({ to: "/" });
-  }, [user, navigate]);
+    if (!user) {
+      navigate({ to: "/" });
+    } else {
+      syncData().catch(console.error);
+    }
+  }, [user, navigate, syncData]);
 
   if (!user) return null;
 
