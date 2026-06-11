@@ -165,6 +165,33 @@ export function InboxView({
                     </div>
                   </Card>
 
+                  <Card className="p-5 max-w-3xl mx-auto mt-4">
+                    <h3 className="font-display font-semibold text-sm mb-3">Histórico de avaliações</h3>
+                    {selecionado.historico.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Sem eventos registrados.</p>
+                    ) : (
+                      <ol className="relative border-l border-border ml-2 space-y-4">
+                        {selecionado.historico.slice().reverse().map((h, i) => {
+                          const ev = h.evento.toLowerCase();
+                          const isReprov = ev.includes("reprovad");
+                          const isAprov = ev.includes("aprovad");
+                          const dotClass = isReprov
+                            ? "bg-destructive"
+                            : isAprov
+                              ? "bg-success"
+                              : "bg-primary";
+                          return (
+                            <li key={i} className="ml-4">
+                              <span className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-card ${dotClass}`} />
+                              <p className="text-sm font-medium">{h.evento}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{h.data}</p>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
+                  </Card>
+
                   {showJustif && (
                     <Card className="p-4 max-w-3xl mx-auto mt-4 border-destructive/30 bg-destructive/5">
                       <p className="text-sm font-medium mb-2">Justificativa da reprovação</p>
