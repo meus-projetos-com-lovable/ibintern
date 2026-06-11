@@ -10,8 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, UserPlus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Search, UserPlus, MoreVertical, Eye, FileText, XCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import type { Processo } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/alunos")({
   head: () => ({
