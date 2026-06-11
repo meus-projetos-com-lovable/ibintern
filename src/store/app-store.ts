@@ -12,10 +12,25 @@ export interface AuthUser {
   unidade: string;
 }
 
+export interface AvaliacaoLog {
+  id: string;
+  data: string;
+  avaliador_id: string;
+  avaliador_nome: string;
+  avaliador_role: Role;
+  processo_id: string;
+  aluno_nome: string;
+  tipo: "Contrato" | "Relatório";
+  alvo: string;
+  veredito: ProcessoStatus;
+  justificativa?: string;
+}
+
 interface AppState {
   user: AuthUser | null;
   alunos: Aluno[];
   processos: Processo[];
+  avaliacoes: AvaliacaoLog[];
   login: (role: Role) => void;
   logout: () => void;
   addAluno: (a: Omit<Aluno, "id">) => { ok: boolean; error?: string };
