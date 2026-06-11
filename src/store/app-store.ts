@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { MOCK_ALUNOS, MOCK_PROCESSOS, type Aluno, type Processo, type ProcessoStatus } from "@/lib/mock-data";
+import type { Aluno, Processo, ProcessoStatus } from "@/lib/mock-data";
 
 export type Role = "aluno" | "secretaria" | "coordenador";
 
@@ -10,6 +10,7 @@ export interface AuthUser {
   email: string;
   role: Role;
   unidade: string;
+  matricula: string;
 }
 
 export interface AvaliacaoLog {
@@ -31,164 +32,297 @@ interface AppState {
   alunos: Aluno[];
   processos: Processo[];
   avaliacoes: AvaliacaoLog[];
-  login: (role: Role) => void;
+  login: (role: Role) => Promise<void>;
   logout: () => void;
-  addAluno: (a: Omit<Aluno, "id">) => { ok: boolean; error?: string };
-  iniciarProcesso: (alunoId: string, empresa: string, arquivo: string) => void;
-  avaliarContrato: (processoId: string, veredito: ProcessoStatus, justificativa?: string) => void;
-  enviarRelatorio: (processoId: string, titulo: string, arquivo: string, atraso?: boolean) => void;
-  avaliarRelatorio: (processoId: string, relatorioId: string, veredito: ProcessoStatus, justificativa?: string) => void;
+  syncData: () => Promise<void>;
+  addAluno: (a: Omit<Aluno, "id">) => Promise<{ ok: boolean; error?: string }>;
+  iniciarProcesso: (alunoId: string, empresa: string, file: File) => Promise<void>;
+  avaliarContrato: (processoId: string, veredito: ProcessoStatus, justificativa?: string) => Promise<void>;
+  enviarRelatorio: (processoId: string, titulo: string, file: File, atraso?: boolean) => Promise<void>;
+  avaliarRelatorio: (processoId: string, relatorioId: string, veredito: ProcessoStatus, justificativa?: string) => Promise<void>;
+}
+
+function mapStatus(s: string): ProcessoStatus {
+  const norm = String(s).toUpperCase();
+  if (norm === "ABERTO" || norm === "PENDENTE" || norm === "AGUARDANDO_VALIDACAO") return "Pendente";
+  if (norm === "EM_ANDAMENTO" || norm === "EM ANDAMENTO") return "Em Andamento";
+  if (norm === "CONCLUIDO" || norm === "APROVADO") return "Aprovado";
+  if (norm === "CANCELADO" || norm === "REPROVADO") return "Reprovado";
+  return "Pendente";
 }
 
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       user: null,
-      alunos: MOCK_ALUNOS,
-      processos: MOCK_PROCESSOS,
+      alunos: [],
+      processos: [],
       avaliacoes: [],
 
-      login: (role) => {
-        const profiles: Record<Role, AuthUser> = {
-          aluno: { id: "a1", nome: "Bernardo Lima", email: "bernardo@al.ibmec.edu.br", role: "aluno", unidade: "Ibmec RJ" },
-          secretaria: { id: "s1", nome: "Ana Martins", email: "ana.martins@ibmec.edu.br", role: "secretaria", unidade: "Ibmec RJ" },
-          coordenador: { id: "c1", nome: "Prof. Rafael Coordenação", email: "rafael.coord@ibmec.edu.br", role: "coordenador", unidade: "Ibmec RJ" },
+      login: async (role) => {
+        const credentials: Record<Role, { username: string; password: string }> = {
+          aluno: { username: "aluno01", password: "senha123" },
+          secretaria: { username: "sec01", password: "senha123" },
+          coordenador: { username: "coord01", password: "senha123" },
         };
-        set({ user: profiles[role] });
+        const creds = credentials[role];
+        const res = await fetch("http://localhost:8000/auth/login/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(creds),
+        });
+        if (!res.ok) {
+          throw new Error("Erro de login");
+        }
+        const data = await res.json();
+        localStorage.setItem("access_token", data.access);
+        localStorage.setItem("refresh_token", data.refresh);
+
+        const meRes = await fetch("http://localhost:8000/auth/me/", {
+          headers: { "Authorization": `Bearer ${data.access}` }
+        });
+        if (!meRes.ok) throw new Error("Erro ao carregar perfil");
+        const meData = await meRes.json();
+        
+        const mappedRole = meData.role.toLowerCase() as Role;
+        const user: AuthUser = {
+          id: String(meData.id),
+          nome: meData.nome,
+          email: meData.email,
+          role: mappedRole,
+          unidade: "Ibmec RJ",
+          matricula: meData.matricula,
+        };
+
+        set({ user });
+        await get().syncData();
       },
 
-      logout: () => set({ user: null }),
+      logout: () => {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        set({ user: null, alunos: [], processos: [], avaliacoes: [] });
+      },
 
-      addAluno: (a) => {
-        const exists = get().alunos.some((x) => x.cpf === a.cpf || x.matricula === a.matricula);
-        if (exists) return { ok: false, error: "A matrícula ou CPF informados já estão em uso por outro aluno." };
-        set({ alunos: [...get().alunos, { ...a, id: `a${Date.now()}` }] });
+      syncData: async () => {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          get().logout();
+          return;
+        }
+
+        const headers = { "Authorization": `Bearer ${token}` };
+
+        // 1. Fetch processos
+        const procRes = await fetch("http://localhost:8000/processo/", { headers });
+        if (procRes.status === 401) {
+          get().logout();
+          return;
+        }
+        if (procRes.ok) {
+          const procData = await procRes.json();
+          const results = procData.results || procData;
+          const processos = results.map((p: any) => ({
+            id: String(p.id),
+            aluno_id: String(p.aluno_id),
+            aluno_nome: p.aluno_nome,
+            matricula: p.matricula,
+            curso: p.curso,
+            empresa: p.nome_empresa,
+            status: mapStatus(p.status),
+            criado_em: p.criado_em,
+            contrato: p.contrato ? {
+              id: String(p.contrato.id),
+              nome_arquivo: p.contrato.nome_arquivo,
+              data_envio: p.contrato.data_envio,
+              nome_empresa: p.contrato.nome_empresa,
+              status: mapStatus(p.contrato.status),
+              observacoes: p.contrato.observacoes,
+              apolice_seguro: p.contrato.apolice_seguro,
+              data_inicio: p.contrato.data_inicio,
+            } : undefined,
+            relatorios: (p.relatorios || p.relatorio || []).map((r: any) => ({
+              id: String(r.id),
+              titulo: r.titulo,
+              corpo: r.corpo,
+              data_envio: r.data_envio,
+              status: mapStatus(r.status),
+              atraso: r.atraso,
+            })),
+            historico: (p.historico || []).map((h: any) => ({
+              data: h.data,
+              evento: h.evento,
+            })),
+          }));
+          set({ processos });
+        }
+
+        // 2. Fetch alunos if staff
+        const u = get().user;
+        if (u && (u.role === "secretaria" || u.role === "coordenador")) {
+          const alunoRes = await fetch("http://localhost:8000/aluno/", { headers });
+          if (alunoRes.ok) {
+            const alunoData = await alunoRes.json();
+            const results = alunoData.results || alunoData;
+            const alunos = results.map((a: any) => ({
+              id: String(a.id),
+              nome: a.nome,
+              matricula: a.matricula,
+              cpf: a.cpf,
+              curso: a.curso,
+              email: a.email,
+            }));
+            set({ alunos });
+          }
+        }
+      },
+
+      addAluno: async (a) => {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch("http://localhost:8000/aluno/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            nome: a.nome,
+            email: a.email,
+            matricula: a.matricula,
+            senha: "senha123",
+            cpf: a.cpf.replace(/\D/g, ""),
+            curso: 1,
+            unidade: "Barra",
+            periodo: "Manhã",
+            aceite_lgpd: true,
+          }),
+        });
+        if (!res.ok) {
+          const errData = await res.json();
+          const errorMsg = errData.matricula?.[0] || errData.cpf?.[0] || errData.detail || "Erro ao cadastrar aluno.";
+          return { ok: false, error: errorMsg };
+        }
+        await get().syncData();
         return { ok: true };
       },
 
-      iniciarProcesso: (alunoId, empresa, arquivo) => {
-        const aluno = get().alunos.find((x) => x.id === alunoId);
-        if (!aluno) return;
-        const now = new Date().toISOString().slice(0, 10);
-        const proc: Processo = {
-          id: `p${Date.now()}`,
-          aluno_id: aluno.id,
-          aluno_nome: aluno.nome,
-          matricula: aluno.matricula,
-          curso: aluno.curso,
-          empresa,
-          status: "Pendente",
-          criado_em: now,
-          contrato: {
-            id: `c${Date.now()}`,
-            nome_arquivo: arquivo,
-            data_envio: now,
-            nome_empresa: empresa,
-            status: "Pendente",
-          },
-          relatorios: [],
-          historico: [
-            { data: now, evento: "Processo iniciado" },
-            { data: now, evento: "Contrato enviado para análise" },
-          ],
+      iniciarProcesso: async (alunoId, empresa, file) => {
+        const token = localStorage.getItem("access_token");
+        const headers = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         };
-        set({ processos: [proc, ...get().processos] });
+        const procRes = await fetch("http://localhost:8000/processo/", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            nome_empresa: empresa,
+            status: "ABERTO",
+          }),
+        });
+        if (!procRes.ok) {
+          throw new Error("Erro ao iniciar processo");
+        }
+        
+        await get().syncData();
+        const proc = get().processos.find(p => p.empresa === empresa && p.status === "Pendente");
+        if (!proc) throw new Error("Processo não encontrado após criação");
+
+        const formData = new FormData();
+        formData.append("arquivo", file);
+        
+        const uploadRes = await fetch(`http://localhost:8000/processo/${proc.id}/contrato/`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          throw new Error("Erro ao enviar contrato");
+        }
+
+        await get().syncData();
       },
 
-      avaliarContrato: (processoId, veredito, justificativa) => {
-        const now = new Date().toISOString().slice(0, 10);
+      avaliarContrato: async (processoId, veredito, justificativa) => {
+        const token = localStorage.getItem("access_token");
+        const proc = get().processos.find(p => p.id === processoId);
+        if (!proc || !proc.contrato) return;
+
         const u = get().user;
-        const proc = get().processos.find((p) => p.id === processoId);
-        set({
-          processos: get().processos.map((p) => {
-            if (p.id !== processoId || !p.contrato) return p;
-            const novoStatus: ProcessoStatus = veredito === "Aprovado" ? "Em Andamento" : "Reprovado";
-            return {
-              ...p,
-              status: novoStatus,
-              contrato: { ...p.contrato, status: veredito, observacoes: justificativa },
-              historico: [
-                ...p.historico,
-                { data: now, evento: `${veredito === "Aprovado" ? "Contrato aprovado" : `Contrato reprovado: ${justificativa ?? "sem justificativa"}`}${u ? ` — por ${u.nome}` : ""}` },
-              ],
-            };
-          }),
-          avaliacoes: u && proc
-            ? [
-                {
-                  id: `av${Date.now()}`,
-                  data: now,
-                  avaliador_id: u.id,
-                  avaliador_nome: u.nome,
-                  avaliador_role: u.role,
-                  processo_id: processoId,
-                  aluno_nome: proc.aluno_nome,
-                  tipo: "Contrato",
-                  alvo: proc.contrato?.nome_arquivo ?? "Contrato",
-                  veredito,
-                  justificativa,
-                },
-                ...get().avaliacoes,
-              ]
-            : get().avaliacoes,
+        if (!u) return;
+
+        const body = {
+          contrato_id: Number(proc.contrato.id),
+          veredito: veredito === "Aprovado" ? "APROVADO" : "REPROVADO",
+          justificativa: justificativa || "",
+          observacoes: justificativa || "",
+          avaliador: Number(u.id),
+        };
+
+        const res = await fetch("http://localhost:8000/contrato/avaliar/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
         });
+        if (!res.ok) {
+          throw new Error("Erro ao avaliar contrato");
+        }
+
+        await get().syncData();
       },
 
-      enviarRelatorio: (processoId, titulo, arquivo, atraso) => {
-        const now = new Date().toISOString().slice(0, 10);
-        set({
-          processos: get().processos.map((p) => {
-            if (p.id !== processoId) return p;
-            return {
-              ...p,
-              relatorios: [
-                ...p.relatorios,
-                { id: `r${Date.now()}`, titulo, data_envio: now, status: "Pendente", atraso },
-              ],
-              historico: [...p.historico, { data: now, evento: `Relatório "${titulo}" enviado (${arquivo})` }],
-            };
-          }),
+      enviarRelatorio: async (processoId, titulo, file) => {
+        const token = localStorage.getItem("access_token");
+        const formData = new FormData();
+        formData.append("arquivo", file);
+        formData.append("titulo", titulo);
+        formData.append("corpo", "Envio do relatório de estágio.");
+
+        const res = await fetch(`http://localhost:8000/processo/${processoId}/relatorio/`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+          body: formData,
         });
+        if (!res.ok) {
+          throw new Error("Erro ao enviar relatório");
+        }
+
+        await get().syncData();
       },
 
-      avaliarRelatorio: (processoId, relatorioId, veredito, justificativa) => {
-        const now = new Date().toISOString().slice(0, 10);
+      avaliarRelatorio: async (processoId, relatorioId, veredito, justificativa) => {
+        const token = localStorage.getItem("access_token");
         const u = get().user;
-        const proc = get().processos.find((p) => p.id === processoId);
-        const rel = proc?.relatorios.find((r) => r.id === relatorioId);
-        set({
-          processos: get().processos.map((p) => {
-            if (p.id !== processoId) return p;
-            return {
-              ...p,
-              relatorios: p.relatorios.map((r) =>
-                r.id === relatorioId ? { ...r, status: veredito } : r
-              ),
-              historico: [
-                ...p.historico,
-                { data: now, evento: `Relatório avaliado: ${veredito}${justificativa ? ` — ${justificativa}` : ""}${u ? ` — por ${u.nome}` : ""}` },
-              ],
-            };
-          }),
-          avaliacoes: u && proc
-            ? [
-                {
-                  id: `av${Date.now()}`,
-                  data: now,
-                  avaliador_id: u.id,
-                  avaliador_nome: u.nome,
-                  avaliador_role: u.role,
-                  processo_id: processoId,
-                  aluno_nome: proc.aluno_nome,
-                  tipo: "Relatório",
-                  alvo: rel?.titulo ?? "Relatório",
-                  veredito,
-                  justificativa,
-                },
-                ...get().avaliacoes,
-              ]
-            : get().avaliacoes,
+        if (!u) return;
+
+        const body = {
+          relatorio_id: Number(relatorioId),
+          veredito: veredito === "Aprovado" ? "APROVADO" : "REPROVADO",
+          justificativa: justificativa || "",
+          observacoes: justificativa || "",
+          avaliador: Number(u.id),
+        };
+
+        const res = await fetch("http://localhost:8000/relatorio/avaliar/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
         });
+        if (!res.ok) {
+          throw new Error("Erro ao avaliar relatório");
+        }
+
+        await get().syncData();
       },
     }),
     { name: "ibmec-estagios-store" }
