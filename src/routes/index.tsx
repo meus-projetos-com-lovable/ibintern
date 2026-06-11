@@ -5,6 +5,7 @@ import { useAppStore, type Role } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import logoAsset from "@/assets/ibintern-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
