@@ -165,7 +165,7 @@ function LoginPage() {
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       <div className="hidden lg:flex flex-col justify-between p-12 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="IbIntern Logo" className="h-16 object-contain brightness-0 invert" />
+          <img src="/logo.png" alt="IbIntern Logo" className="h-20 object-contain brightness-0 invert" />
         </div>
 
         <div className="max-w-md">

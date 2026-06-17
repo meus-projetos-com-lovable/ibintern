@@ -31,7 +31,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
     <div className="flex min-h-screen w-full bg-background">
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-sidebar">
         <div className="flex items-center gap-2 px-6 py-5 border-b">
-          <img src="/logo.png" alt="IbIntern Logo" className="h-12 object-contain" />
+          <img src="/logo.png" alt="IbIntern Logo" className="h-16 object-contain" />
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {items.map((it) => {
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between border-b bg-card px-4 py-3">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="IbIntern Logo" className="h-9 object-contain" />
+            <img src="/logo.png" alt="IbIntern Logo" className="h-12 object-contain" />
           </div>
           <Button variant="ghost" size="sm" onClick={() => { logout(); navigate({ to: "/" }); }}>Sair</Button>
         </header>
