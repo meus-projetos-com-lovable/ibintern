@@ -190,7 +190,9 @@ function ProcessoDetailPanel({
   });
 
   // Download contrato PDF for iframe
-  const contratoAtivo = detalhe?.contrato?.[0];
+  const contratoAtivo = detalhe?.contrato && detalhe.contrato.length > 0
+    ? detalhe.contrato[detalhe.contrato.length - 1]
+    : undefined;
   const { data: contratoUrl } = useQuery({
     queryKey: ["contratos", "download", contratoAtivo?.id],
     queryFn: () => contratosApi.download(contratoAtivo!.id),
@@ -281,6 +283,29 @@ function ProcessoDetailPanel({
                 )}
               </div>
             </Card>
+
+            {/* Dados Extraídos pela IA */}
+            {isSecretaria && contratoAtivo && (
+              <Card className="p-6 border-primary/20 bg-primary/5">
+                <h3 className="font-display font-semibold mb-4 text-primary flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5" /> Dados Extraídos pelo Leitor de IA
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-2">
+                    <Field label="Razão Social" value={contratoAtivo.nome_empresa ?? undefined} />
+                    <Field label="CNPJ da Empresa" value={contratoAtivo.cnpj_empresa ?? undefined} />
+                    <Field label="Número da Apólice" value={contratoAtivo.apolice_seguro ?? undefined} />
+                    <Field label="Plano de Atividades Anexo?" value={contratoAtivo.plano_atividade ? "Sim" : "Não"} />
+                  </div>
+                  <div className="space-y-2">
+                    <Field label="Data de Início" value={contratoAtivo.data_inicio ?? undefined} />
+                    <Field label="Data de Término" value={contratoAtivo.data_termino ?? undefined} />
+                    <Field label="Assinatura do Aluno?" value={contratoAtivo.assinatura_aluno ? "Sim" : "Não"} />
+                    <Field label="Assinatura da Empresa?" value={contratoAtivo.assinatura_empresa ? "Sim" : "Não"} />
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Document Preview — Secretaria sees contrato, Coordenador sees relatório */}
             {isSecretaria && contratoAtivo && (
