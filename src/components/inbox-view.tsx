@@ -242,7 +242,11 @@ function ProcessoDetailPanel({
   });
 
   // Determine which evaluation is active
-  const canEvalContrato = isSecretaria && contratoAtivo && contratoAtivo.status === "pendente" && allowAvaliacao;
+  const isSystemRejected = contratoAtivo?.status === "reprovado" && (
+    (contratoAtivo.historico?.observacoes?.includes("Reprovação Automática") ?? false) ||
+    (contratoAtivo.historico?.justificativa?.includes("Reprovação Automática") ?? false)
+  );
+  const canEvalContrato = isSecretaria && contratoAtivo && (contratoAtivo.status === "pendente" || isSystemRejected) && allowAvaliacao;
   const canEvalRelatorio = isCoordenador && relatorioAtivo &&
     (relatorioAtivo.status === "aguardando_validacao" || relatorioAtivo.status === "pendente") && allowAvaliacao;
 
