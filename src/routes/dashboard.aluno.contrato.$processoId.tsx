@@ -28,7 +28,9 @@ function ContratoDetalhe() {
     queryFn: () => processosApi.detalhe(pid),
   });
 
-  const contratoAtivo = processo?.contrato?.[0];
+  const contratoAtivo = processo?.contrato && processo.contrato.length > 0
+    ? processo.contrato[processo.contrato.length - 1]
+    : undefined;
 
   // Download URL for the latest contrato — now we have the ID
   const { data: downloadUrl } = useQuery({
@@ -61,6 +63,10 @@ function ContratoDetalhe() {
   }
 
   const historico = contratoAtivo.historico;
+  const temInformacoes =
+    (contratoAtivo.status !== "pendente" && contratoAtivo.status !== "analise_sec") ||
+    contratoAtivo.conflito_grade ||
+    !!historico;
 
   return (
     <AppShell>
@@ -74,92 +80,116 @@ function ContratoDetalhe() {
           action={<StatusBadge status={contratoAtivo.status} />}
         />
 
-        <div className="grid lg:grid-cols-[1fr_360px] gap-6">
-          {/* PDF Preview via iframe */}
-          <Card className="overflow-hidden">
-            {downloadUrl ? (
-              <iframe
-                src={downloadUrl}
-                title="Contrato PDF"
-                className="w-full h-[720px] border-0"
-              />
-            ) : (
-              <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
-                <FileText className="h-12 w-12 text-primary/60 mb-4" />
-                <p className="font-display font-medium">Contrato — {contratoAtivo.nome_empresa ?? processo.nome_empresa}</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Carregando pré-visualização...
-                </p>
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-4" />
-              </div>
-            )}
-          </Card>
-
-          <div className="space-y-4">
-            {/* Contract Data */}
-            <Card className="p-5">
-              <h3 className="font-display font-semibold mb-3">Dados do contrato</h3>
-              <dl className="space-y-3 text-sm">
-                <Field icon={Building2} label="Empresa concedente" value={contratoAtivo.nome_empresa ?? processo.nome_empresa} />
-                <Field icon={Calendar} label="Data de upload" value={contratoAtivo.data_upload} />
-                <Field icon={ShieldCheck} label="Conflito de grade" value={contratoAtivo.conflito_grade ? "⚠️ Sim" : "Não"} />
-              </dl>
+        {temInformacoes ? (
+          <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+            {/* PDF Preview via iframe */}
+            <Card className="overflow-hidden">
+              {downloadUrl ? (
+                <iframe
+                  src={downloadUrl}
+                  title="Contrato PDF"
+                  className="w-full h-[720px] border-0"
+                />
+              ) : (
+                <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
+                  <FileText className="h-12 w-12 text-primary/60 mb-4" />
+                  <p className="font-display font-medium">Contrato — {contratoAtivo.nome_empresa ?? processo.nome_empresa}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Carregando pré-visualização...
+                  </p>
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-4" />
+                </div>
+              )}
             </Card>
 
-            {/* Download Button */}
-            {downloadUrl && (
-              <Button
-                className="w-full gap-2"
-                onClick={() => {
-                  const a = document.createElement("a");
-                  a.href = downloadUrl;
-                  a.download = `contrato_${contratoAtivo.id}.pdf`;
-                  a.click();
-                  toast.success("Download iniciado.");
-                }}
-              >
-                <Download className="h-4 w-4" /> Baixar PDF
-              </Button>
-            )}
+            <div className="space-y-4">
+              {/* Contract Data */}
+              <Card className="p-5">
+                <h3 className="font-display font-semibold mb-3">Informações</h3>
+                <dl className="space-y-3 text-sm">
+                  <Field icon={Building2} label="Empresa concedente" value={contratoAtivo.nome_empresa ?? processo.nome_empresa} />
+                  <Field icon={Calendar} label="Data de upload" value={contratoAtivo.data_upload} />
+                  <Field icon={ShieldCheck} label="Conflito de grade" value={contratoAtivo.conflito_grade ? "⚠️ Sim" : "Não"} />
+                </dl>
+              </Card>
 
-            {/* Histórico de Avaliação */}
-            {historico && (
-              <Card className={`p-5 ${
-                historico.veredito === "reprovado"
-                  ? "border-destructive/30 bg-destructive/5"
-                  : "border-green-500/30 bg-green-500/5"
-              }`}>
-                <div className="flex items-center gap-2 mb-2">
-                  {historico.veredito === "aprovado" ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-destructive" />
+              {/* Download Button */}
+              {downloadUrl && (
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = downloadUrl;
+                    a.download = `contrato_${contratoAtivo.id}.pdf`;
+                    a.click();
+                    toast.success("Download iniciado.");
+                  }}
+                >
+                  <Download className="h-4 w-4" /> Baixar PDF
+                </Button>
+              )}
+
+              {/* Histórico de Avaliação */}
+              {historico && (
+                <Card className={`p-5 ${
+                  historico.veredito === "reprovado"
+                    ? "border-destructive/30 bg-destructive/5"
+                    : "border-green-500/30 bg-green-500/5"
+                }`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {historico.veredito === "aprovado" ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive" />
+                    )}
+                    <p className="font-medium text-sm capitalize">{historico.veredito}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Avaliado por: {historico.avaliador_nome} · {new Date(historico.data_avaliacao).toLocaleDateString("pt-BR")}
+                  </p>
+                  <p className="text-sm text-foreground/80">{historico.observacoes}</p>
+                  {historico.justificativa && (
+                    <p className="text-sm text-foreground/70 mt-1 italic">Justificativa: {historico.justificativa}</p>
                   )}
-                  <p className="font-medium text-sm capitalize">{historico.veredito}</p>
-                </div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Avaliado por: {historico.avaliador_nome} · {new Date(historico.data_avaliacao).toLocaleDateString("pt-BR")}
-                </p>
-                <p className="text-sm text-foreground/80">{historico.observacoes}</p>
-                {historico.justificativa && (
-                  <p className="text-sm text-foreground/70 mt-1 italic">Justificativa: {historico.justificativa}</p>
-                )}
-              </Card>
-            )}
+                </Card>
+              )}
 
-            {/* Reprovado Alert (no historico) */}
-            {contratoAtivo.status === "reprovado" && !historico && (
-              <Card className="p-5 border-destructive/30 bg-destructive/5">
-                <p className="font-medium text-destructive flex items-center gap-2 text-sm">
-                  <AlertTriangle className="h-4 w-4" /> Contrato reprovado
-                </p>
-                <p className="text-sm text-foreground/80 mt-2">
-                  Entre em contato com a secretaria para detalhes.
-                </p>
-              </Card>
-            )}
+              {/* Reprovado Alert (no historico) */}
+              {contratoAtivo.status === "reprovado" && !historico && (
+                <Card className="p-5 border-destructive/30 bg-destructive/5">
+                  <p className="font-medium text-destructive flex items-center gap-2 text-sm">
+                    <AlertTriangle className="h-4 w-4" /> Contrato reprovado
+                  </p>
+                  <p className="text-sm text-foreground/80 mt-2">
+                    Entre em contato com a secretaria para detalhes.
+                  </p>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="w-full">
+            {/* PDF Preview via iframe */}
+            <Card className="overflow-hidden">
+              {downloadUrl ? (
+                <iframe
+                  src={downloadUrl}
+                  title="Contrato PDF"
+                  className="w-full h-[720px] border-0"
+                />
+              ) : (
+                <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
+                  <FileText className="h-12 w-12 text-primary/60 mb-4" />
+                  <p className="font-display font-medium">Contrato — {contratoAtivo.nome_empresa ?? processo.nome_empresa}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Carregando pré-visualização...
+                  </p>
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-4" />
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
       </div>
     </AppShell>
   );
