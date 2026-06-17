@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Search, CheckCircle2, XCircle, FileText, Inbox, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { processos as processosApi, contratos as contratosApi } from "@/lib/api/endpoints";
-import type { Processo, StatusContrato } from "@/lib/api/types";
+import { processos as processosApi, contratos as contratosApi, relatorios as relatoriosApi } from "@/lib/api/endpoints";
+import type { Processo, ProcessoDetail, StatusContrato } from "@/lib/api/types";
 import { STATUS_PROCESSO_LABEL } from "@/lib/api/types";
 
 interface InboxViewProps {
@@ -123,7 +123,7 @@ export function InboxView({
                   const active = selecionadoIdx === idx;
                   return (
                     <button
-                      key={`${p.matricula_aluno}-${p.nome_empresa}`}
+                      key={`${p.id}-${p.matricula_aluno}`}
                       onClick={() => setSelecionadoIdx(idx)}
                       className={`w-full text-left rounded-lg border p-3 transition-all ${
                         active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40 hover:bg-muted/40"
@@ -151,35 +151,246 @@ export function InboxView({
                 </div>
               </div>
             ) : (
-              <>
-                <div className="border-b bg-card px-6 py-4 flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="font-display text-lg font-semibold">{selecionado.nome_empresa}</h2>
-                    <p className="text-xs text-muted-foreground">
-                      Aluno: {selecionado.matricula_aluno} · Secretaria: {selecionado.matricula_secretaria} · Coordenação: {selecionado.matricula_coordenacao}
-                    </p>
-                  </div>
-                  <StatusBadge status={selecionado.status} />
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6">
-                  <Card className="p-6 max-w-3xl mx-auto">
-                    <h3 className="font-display font-semibold mb-4">Dados do Processo</h3>
-                    <div className="space-y-3 text-sm">
-                      <Field label="Empresa" value={selecionado.nome_empresa} />
-                      <Field label="Matrícula do Aluno" value={selecionado.matricula_aluno} />
-                      <Field label="Status" value={STATUS_PROCESSO_LABEL[selecionado.status] ?? selecionado.status} />
-                      <Field label="Secretaria" value={selecionado.matricula_secretaria} />
-                      <Field label="Coordenação" value={selecionado.matricula_coordenacao} />
-                    </div>
-                  </Card>
-                </div>
-              </>
+              <ProcessoDetailPanel
+                processo={selecionado}
+                isSecretaria={user?.role === "secretaria"}
+                isCoordenador={user?.role === "coordenador"}
+                userId={user?.id ?? 0}
+                allowAvaliacao={allowAvaliacao}
+              />
             )}
           </section>
         </div>
       </div>
     </AppShell>
+  );
+}
+
+/* ── Detail Panel with iframe + evaluation ──────────────────── */
+function ProcessoDetailPanel({
+  processo,
+  isSecretaria,
+  isCoordenador,
+  userId,
+  allowAvaliacao,
+}: {
+  processo: Processo;
+  isSecretaria: boolean;
+  isCoordenador: boolean;
+  userId: number;
+  allowAvaliacao: boolean;
+}) {
+  const queryClient = useQueryClient();
+
+  // Fetch processo detail to get contratos/relatorios
+  const { data: detalhe, isLoading: detailLoading } = useQuery({
+    queryKey: ["processos", "detalhe", processo.id],
+    queryFn: () => processosApi.detalhe(processo.id),
+    enabled: !!processo.id,
+  });
+
+  // Download contrato PDF for iframe
+  const contratoAtivo = detalhe?.contrato?.[0];
+  const { data: contratoUrl } = useQuery({
+    queryKey: ["contratos", "download", contratoAtivo?.id],
+    queryFn: () => contratosApi.download(contratoAtivo!.id),
+    enabled: !!contratoAtivo?.id && isSecretaria,
+  });
+
+  // Evaluation state
+  const [observacoes, setObservacoes] = useState("");
+  const [justificativa, setJustificativa] = useState("");
+
+  const avaliarContrato = useMutation({
+    mutationFn: (veredito: "aprovado" | "reprovado") =>
+      contratosApi.avaliar({
+        observacoes,
+        veredito,
+        avaliador: userId,
+        contrato_id: contratoAtivo!.id,
+        justificativa: veredito === "reprovado" ? justificativa : undefined,
+      }),
+    onSuccess: (_, veredito) => {
+      queryClient.invalidateQueries({ queryKey: ["processos"] });
+      toast.success(`Contrato ${veredito} com sucesso!`);
+      setObservacoes("");
+      setJustificativa("");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const relatorioAtivo = detalhe?.relatorio?.[detalhe.relatorio.length - 1];
+
+  const avaliarRelatorio = useMutation({
+    mutationFn: (veredito: "aprovado" | "reprovado") =>
+      relatoriosApi.avaliar({
+        observacoes,
+        veredito,
+        avaliador: userId,
+        relatorio_id: relatorioAtivo!.id,
+        justificativa: veredito === "reprovado" ? justificativa : undefined,
+      }),
+    onSuccess: (_, veredito) => {
+      queryClient.invalidateQueries({ queryKey: ["processos"] });
+      toast.success(`Relatório ${veredito} com sucesso!`);
+      setObservacoes("");
+      setJustificativa("");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  // Determine which evaluation is active
+  const canEvalContrato = isSecretaria && contratoAtivo && contratoAtivo.status === "pendente" && allowAvaliacao;
+  const canEvalRelatorio = isCoordenador && relatorioAtivo &&
+    (relatorioAtivo.status === "aguardando_validacao" || relatorioAtivo.status === "pendente") && allowAvaliacao;
+
+  return (
+    <>
+      {/* Header */}
+      <div className="border-b bg-card px-6 py-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-display text-lg font-semibold">{processo.nome_empresa}</h2>
+          <p className="text-xs text-muted-foreground">
+            Aluno: {processo.matricula_aluno} · Secretaria: {processo.matricula_secretaria} · Coordenação: {processo.matricula_coordenacao}
+          </p>
+        </div>
+        <StatusBadge status={processo.status} />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {detailLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Processo Info */}
+            <Card className="p-6">
+              <h3 className="font-display font-semibold mb-4">Dados do Processo</h3>
+              <div className="space-y-3 text-sm">
+                <Field label="Empresa" value={processo.nome_empresa} />
+                <Field label="Matrícula do Aluno" value={processo.matricula_aluno} />
+                <Field label="Status" value={STATUS_PROCESSO_LABEL[processo.status] ?? processo.status} />
+                {detalhe && (
+                  <>
+                    <Field label="Aluno" value={detalhe.aluno.nome} />
+                    <Field label="Secretaria" value={detalhe.secretaria.nome} />
+                    <Field label="Coordenação" value={detalhe.coordenacao.nome} />
+                  </>
+                )}
+              </div>
+            </Card>
+
+            {/* Document Preview — Secretaria sees contrato, Coordenador sees relatório */}
+            {isSecretaria && contratoAtivo && (
+              <Card className="overflow-hidden">
+                <div className="px-5 py-3 border-b bg-muted/30">
+                  <h3 className="font-display text-sm font-semibold">Contrato (TCE) — {contratoAtivo.nome_empresa ?? processo.nome_empresa}</h3>
+                  <StatusBadge status={contratoAtivo.status} />
+                </div>
+                {contratoUrl ? (
+                  <iframe
+                    src={contratoUrl}
+                    title="Contrato PDF"
+                    className="w-full h-[500px] border-0"
+                  />
+                ) : (
+                  <div className="w-full h-[300px] flex items-center justify-center bg-card-alt">
+                    <div className="text-center">
+                      <FileText className="h-10 w-10 text-primary/40 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Carregando documento...</p>
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mx-auto mt-2" />
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {isCoordenador && relatorioAtivo && (
+              <Card className="overflow-hidden">
+                <div className="px-5 py-3 border-b bg-muted/30">
+                  <h3 className="font-display text-sm font-semibold">Relatório de Estágio</h3>
+                  <StatusBadge status={relatorioAtivo.status} />
+                </div>
+                {relatorioAtivo.corpo ? (
+                  <div className="p-6 max-h-[500px] overflow-y-auto">
+                    {relatorioAtivo.titulo && (
+                      <h4 className="font-display font-semibold mb-3">{relatorioAtivo.titulo}</h4>
+                    )}
+                    <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-wrap">
+                      {relatorioAtivo.corpo}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-[300px] flex items-center justify-center bg-card-alt">
+                    <div className="text-center">
+                      <FileText className="h-10 w-10 text-primary/40 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Relatório enviado como arquivo. Processando...</p>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* Evaluation Form */}
+            {(canEvalContrato || canEvalRelatorio) && (
+              <Card className="p-6">
+                <h3 className="font-display font-semibold mb-4">
+                  {canEvalContrato ? "Avaliar Contrato" : "Avaliar Relatório"}
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">Observações</label>
+                    <Textarea
+                      placeholder="Descreva suas observações sobre o documento..."
+                      value={observacoes}
+                      onChange={(e) => setObservacoes(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">Justificativa (obrigatória para reprovação)</label>
+                    <Textarea
+                      placeholder="Justifique caso reprove o documento..."
+                      value={justificativa}
+                      onChange={(e) => setJustificativa(e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      className="gap-2 flex-1"
+                      disabled={!observacoes.trim() || avaliarContrato.isPending || avaliarRelatorio.isPending}
+                      onClick={() => {
+                        if (canEvalContrato) avaliarContrato.mutate("aprovado");
+                        else avaliarRelatorio.mutate("aprovado");
+                      }}
+                    >
+                      {(avaliarContrato.isPending || avaliarRelatorio.isPending) && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      <CheckCircle2 className="h-4 w-4" /> Aprovar
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="gap-2 flex-1"
+                      disabled={!observacoes.trim() || !justificativa.trim() || avaliarContrato.isPending || avaliarRelatorio.isPending}
+                      onClick={() => {
+                        if (canEvalContrato) avaliarContrato.mutate("reprovado");
+                        else avaliarRelatorio.mutate("reprovado");
+                      }}
+                    >
+                      <XCircle className="h-4 w-4" /> Reprovar
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

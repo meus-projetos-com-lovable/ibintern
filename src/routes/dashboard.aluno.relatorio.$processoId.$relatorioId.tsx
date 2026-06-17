@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText, Calendar, Clock, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, FileText, Calendar, Clock, Loader2, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { processos as processosApi } from "@/lib/api/endpoints";
 
 export const Route = createFileRoute("/dashboard/aluno/relatorio/$processoId/$relatorioId")({
@@ -52,6 +52,8 @@ function RelatorioDetalhe() {
     );
   }
 
+  const historico = relatorio.historico;
+
   return (
     <AppShell>
       <div className="px-6 lg:px-10 py-8 max-w-6xl mx-auto">
@@ -59,31 +61,72 @@ function RelatorioDetalhe() {
           <ArrowLeft className="h-4 w-4" /> Voltar ao Meu Estágio
         </Link>
         <PageHeader
-          title={`Relatório de Estágio`}
+          title={relatorio.titulo ?? "Relatório de Estágio"}
           description={`Processo #${processoId} — ${processo.nome_empresa}`}
           action={<StatusBadge status={relatorio.status} />}
         />
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+          {/* Report content or placeholder */}
           <Card className="overflow-hidden">
-            <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
-              <FileText className="h-12 w-12 text-primary/60 mb-4" />
-              <p className="font-display font-medium">Relatório de Estágio</p>
-              <p className="text-xs text-muted-foreground mt-2">Pré-visualização indisponível</p>
-            </div>
+            {relatorio.corpo ? (
+              <div className="w-full min-h-[720px] p-8">
+                {relatorio.titulo && (
+                  <h2 className="font-display text-xl font-semibold mb-4">{relatorio.titulo}</h2>
+                )}
+                <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-wrap">
+                  {relatorio.corpo}
+                </div>
+              </div>
+            ) : (
+              <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
+                <FileText className="h-12 w-12 text-primary/60 mb-4" />
+                <p className="font-display font-medium">Relatório de Estágio</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  O relatório foi enviado como arquivo. O conteúdo está sendo processado.
+                </p>
+              </div>
+            )}
           </Card>
 
           <div className="space-y-4">
+            {/* Report Data */}
             <Card className="p-5">
               <h3 className="font-display font-semibold mb-3">Dados do relatório</h3>
               <dl className="space-y-3 text-sm">
                 <Field icon={Calendar} label="Data de upload" value={relatorio.data_upload} />
-                <Field icon={Clock} label="Entrega" value={"Registrado no sistema"} />
+                <Field icon={Clock} label="Entrega" value={relatorio.fora_do_prazo ? "⚠️ Fora do prazo" : "Dentro do prazo"} />
                 <Field icon={FileText} label="Empresa" value={processo.nome_empresa} />
               </dl>
             </Card>
 
-            {relatorio.status === "reprovado" && (
+            {/* Histórico de Avaliação */}
+            {historico && (
+              <Card className={`p-5 ${
+                historico.veredito === "reprovado"
+                  ? "border-destructive/30 bg-destructive/5"
+                  : "border-green-500/30 bg-green-500/5"
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  {historico.veredito === "aprovado" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-destructive" />
+                  )}
+                  <p className="font-medium text-sm capitalize">{historico.veredito}</p>
+                </div>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Avaliado por: {historico.avaliador_nome} · {new Date(historico.data_avaliacao).toLocaleDateString("pt-BR")}
+                </p>
+                <p className="text-sm text-foreground/80">{historico.observacoes}</p>
+                {historico.justificativa && (
+                  <p className="text-sm text-foreground/70 mt-1 italic">Justificativa: {historico.justificativa}</p>
+                )}
+              </Card>
+            )}
+
+            {/* Reprovado Alert (no historico) */}
+            {relatorio.status === "reprovado" && !historico && (
               <Card className="p-5 border-destructive/30 bg-destructive/5">
                 <p className="font-medium text-destructive flex items-center gap-2 text-sm">
                   <AlertTriangle className="h-4 w-4" /> Relatório reprovado

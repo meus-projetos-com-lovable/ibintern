@@ -57,6 +57,14 @@ export interface Aluno {
   processos: NestedProcesso[];
 }
 
+export interface UserMe {
+  id: number;
+  nome: string;
+  email: string;
+  matricula: string;
+  role: "ALUNO" | "SECRETARIA" | "COORDENADOR";
+}
+
 export interface NestedAluno {
   nome: string;
   matricula: string;
@@ -75,20 +83,37 @@ export interface NestedSecretaria {
   unidade: Unidade;
 }
 
+export interface NestedHistoricoAvaliacao {
+  id: number;
+  observacoes: string;
+  data_avaliacao: string;
+  veredito: Veredito;
+  avaliador_nome: string;
+  justificativa?: string;
+}
+
 export interface NestedContrato {
+  id: number;
   nome_empresa: string | null;
   data_upload: string;
   status: StatusContrato;
   conflito_grade: boolean;
+  historico: NestedHistoricoAvaliacao | null;
 }
 
 export interface NestedRelatorio {
+  id: number;
   data_upload: string;
   status: StatusRelatorio;
+  fora_do_prazo: boolean;
+  titulo: string | null;
+  corpo: string | null;
+  historico: NestedHistoricoAvaliacao | null;
 }
 
 // ProcessoSerializer output (list view)
 export interface Processo {
+  id: number;
   nome_empresa: string;
   status: StatusProcesso;
   matricula_aluno: string;
@@ -98,6 +123,7 @@ export interface Processo {
 
 // ProcessoDetailSerializer output (detail view)
 export interface ProcessoDetail {
+  id: number;
   nome_empresa: string;
   status: StatusProcesso;
   aluno: NestedAluno;

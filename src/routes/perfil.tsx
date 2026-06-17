@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAppStore } from "@/store/app-store";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
@@ -15,7 +16,9 @@ import {
   KeyRound,
   FileText,
   ClipboardList,
+  Loader2,
 } from "lucide-react";
+import { auth } from "@/lib/api/endpoints";
 
 export const Route = createFileRoute("/perfil")({
   head: () => ({
@@ -55,13 +58,24 @@ function PerfilPage() {
   const logout = useAppStore((s) => s.logout);
   const navigate = useNavigate();
 
+  // Fetch fresh user data from /auth/me/
+  const { data: meData, isLoading } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => auth.me(),
+    enabled: !!user,
+  });
+
   useEffect(() => {
     if (!user) navigate({ to: "/" });
   }, [user, navigate]);
 
   if (!user) return null;
 
-  const roleLabel = user.role === "aluno" ? "Aluno" : user.role === "secretaria" ? "Secretaria" : "Coordenador";
+  const nome = meData?.nome ?? user.nome ?? user.username;
+  const email = meData?.email ?? user.email;
+  const matricula = meData?.matricula ?? user.username;
+  const role = user.role;
+  const roleLabel = role === "aluno" ? "Aluno" : role === "secretaria" ? "Secretaria" : "Coordenador";
 
   return (
     <AppShell>
@@ -75,33 +89,35 @@ function PerfilPage() {
         <Card className="p-6 mb-6 bg-gradient-to-br from-primary/5 via-card to-card">
           <div className="flex flex-col sm:flex-row sm:items-center gap-5">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xl font-display font-semibold shadow-md">
-              {user.username.slice(0, 2).toUpperCase()}
+              {nome.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h2 className="font-display text-xl font-semibold">{user.username}</h2>
+                <h2 className="font-display text-xl font-semibold">{nome}</h2>
                 <Badge variant="secondary">{roleLabel}</Badge>
               </div>
-              {user.email && <p className="text-sm text-muted-foreground">{user.email}</p>}
+              {email && <p className="text-sm text-muted-foreground">{email}</p>}
             </div>
+            {isLoading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
           </div>
         </Card>
 
         <div className="grid gap-6 md:grid-cols-2">
           <SectionCard title="Informações da Conta">
-            <InfoRow icon={IdCard} label="Matrícula" value={user.username} />
-            {user.email && <InfoRow icon={Mail} label="E-mail" value={user.email} />}
+            <InfoRow icon={IdCard} label="Matrícula" value={matricula} />
+            <InfoRow icon={User} label="Nome" value={nome} />
+            {email && <InfoRow icon={Mail} label="E-mail" value={email} />}
             <InfoRow icon={GraduationCap} label="Papel" value={roleLabel} />
           </SectionCard>
 
           <SectionCard title="Ações Rápidas">
             <div className="pt-1 grid gap-2">
-              {user.role === "aluno" && (
+              {role === "aluno" && (
                 <Button variant="outline" className="justify-start gap-2" asChild>
                   <a href="/dashboard/aluno"><FileText className="h-4 w-4" /> Meus Processos de Estágio</a>
                 </Button>
               )}
-              {user.role === "secretaria" && (
+              {role === "secretaria" && (
                 <>
                   <Button variant="outline" className="justify-start gap-2" asChild>
                     <a href="/inbox/avaliador"><ClipboardList className="h-4 w-4" /> Caixa de Entrada de Contratos</a>
@@ -111,7 +127,7 @@ function PerfilPage() {
                   </Button>
                 </>
               )}
-              {user.role === "coordenador" && (
+              {role === "coordenador" && (
                 <Button variant="outline" className="justify-start gap-2" asChild>
                   <a href="/inbox/coordenador"><ClipboardList className="h-4 w-4" /> Avaliar Relatórios</a>
                 </Button>

@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText, Download, Building2, Calendar, ShieldCheck, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, FileText, Download, Building2, Calendar, ShieldCheck, Loader2, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { processos as processosApi, contratos as contratosApi } from "@/lib/api/endpoints";
 import { STATUS_CONTRATO_LABEL } from "@/lib/api/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/aluno/contrato/$processoId")({
   head: () => ({
@@ -29,15 +30,11 @@ function ContratoDetalhe() {
 
   const contratoAtivo = processo?.contrato?.[0];
 
-  // Download URL for the latest contrato
+  // Download URL for the latest contrato — now we have the ID
   const { data: downloadUrl } = useQuery({
-    queryKey: ["contratos", "download", contratoAtivo?.nome_empresa],
-    queryFn: async () => {
-      // We need the contrato ID for download, but NestedContratoSerializer doesn't return it.
-      // For now, we'll show an unavailable state.
-      return null;
-    },
-    enabled: false,
+    queryKey: ["contratos", "download", contratoAtivo?.id],
+    queryFn: () => contratosApi.download(contratoAtivo!.id),
+    enabled: !!contratoAtivo?.id,
   });
 
   if (isLoading) {
@@ -63,6 +60,8 @@ function ContratoDetalhe() {
     );
   }
 
+  const historico = contratoAtivo.historico;
+
   return (
     <AppShell>
       <div className="px-6 lg:px-10 py-8 max-w-6xl mx-auto">
@@ -76,17 +75,28 @@ function ContratoDetalhe() {
         />
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+          {/* PDF Preview via iframe */}
           <Card className="overflow-hidden">
-            <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
-              <FileText className="h-12 w-12 text-primary/60 mb-4" />
-              <p className="font-display font-medium">Contrato — {contratoAtivo.nome_empresa ?? processo.nome_empresa}</p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Use o botão de download para acessar o arquivo PDF
-              </p>
-            </div>
+            {downloadUrl ? (
+              <iframe
+                src={downloadUrl}
+                title="Contrato PDF"
+                className="w-full h-[720px] border-0"
+              />
+            ) : (
+              <div className="w-full h-[720px] bg-card-alt flex flex-col items-center justify-center text-center p-8">
+                <FileText className="h-12 w-12 text-primary/60 mb-4" />
+                <p className="font-display font-medium">Contrato — {contratoAtivo.nome_empresa ?? processo.nome_empresa}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Carregando pré-visualização...
+                </p>
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-4" />
+              </div>
+            )}
           </Card>
 
           <div className="space-y-4">
+            {/* Contract Data */}
             <Card className="p-5">
               <h3 className="font-display font-semibold mb-3">Dados do contrato</h3>
               <dl className="space-y-3 text-sm">
@@ -96,7 +106,49 @@ function ContratoDetalhe() {
               </dl>
             </Card>
 
-            {contratoAtivo.status === "reprovado" && (
+            {/* Download Button */}
+            {downloadUrl && (
+              <Button
+                className="w-full gap-2"
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = downloadUrl;
+                  a.download = `contrato_${contratoAtivo.id}.pdf`;
+                  a.click();
+                  toast.success("Download iniciado.");
+                }}
+              >
+                <Download className="h-4 w-4" /> Baixar PDF
+              </Button>
+            )}
+
+            {/* Histórico de Avaliação */}
+            {historico && (
+              <Card className={`p-5 ${
+                historico.veredito === "reprovado"
+                  ? "border-destructive/30 bg-destructive/5"
+                  : "border-green-500/30 bg-green-500/5"
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  {historico.veredito === "aprovado" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-destructive" />
+                  )}
+                  <p className="font-medium text-sm capitalize">{historico.veredito}</p>
+                </div>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Avaliado por: {historico.avaliador_nome} · {new Date(historico.data_avaliacao).toLocaleDateString("pt-BR")}
+                </p>
+                <p className="text-sm text-foreground/80">{historico.observacoes}</p>
+                {historico.justificativa && (
+                  <p className="text-sm text-foreground/70 mt-1 italic">Justificativa: {historico.justificativa}</p>
+                )}
+              </Card>
+            )}
+
+            {/* Reprovado Alert (no historico) */}
+            {contratoAtivo.status === "reprovado" && !historico && (
               <Card className="p-5 border-destructive/30 bg-destructive/5">
                 <p className="font-medium text-destructive flex items-center gap-2 text-sm">
                   <AlertTriangle className="h-4 w-4" /> Contrato reprovado

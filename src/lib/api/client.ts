@@ -9,23 +9,33 @@ const ACCESS_KEY = "ibintern-access-token";
 const REFRESH_KEY = "ibintern-refresh-token";
 
 export function getAccessToken(): string | null {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") {
+    return null;
+  }
   return localStorage.getItem(ACCESS_KEY);
 }
 
 export function getRefreshToken(): string | null {
+  if (typeof window === "undefined" || typeof localStorage === "undefined") {
+    return null;
+  }
   return localStorage.getItem(REFRESH_KEY);
 }
 
 export function setTokens(access: string, refresh: string): void {
-  localStorage.setItem(ACCESS_KEY, access);
-  localStorage.setItem(REFRESH_KEY, refresh);
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(ACCESS_KEY, access);
+    localStorage.setItem(REFRESH_KEY, refresh);
+  }
 }
 
 export function clearTokens(): void {
-  localStorage.removeItem(ACCESS_KEY);
-  localStorage.removeItem(REFRESH_KEY);
-  // Also clear legacy store data
-  localStorage.removeItem("ibmec-estagios-store");
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    // Also clear legacy store data
+    localStorage.removeItem("ibmec-estagios-store");
+  }
 }
 
 // ── Fetch wrapper ───────────────────────────────────────────────────
@@ -100,7 +110,9 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
   if (response.status === 401) {
     clearTokens();
-    window.location.href = "/";
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
     throw new ApiRequestError({ status: 401, message: "Sessão expirada. Faça login novamente." });
   }
 
@@ -177,7 +189,9 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
 
   if (response.status === 401) {
     clearTokens();
-    window.location.href = "/";
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
     throw new ApiRequestError({ status: 401, message: "Sessão expirada." });
   }
 

@@ -10,7 +10,7 @@ const NAV: NavItem[] = [
   { to: "/dashboard/aluno", label: "Meu Estágio", icon: LayoutDashboard, roles: ["aluno"] },
   { to: "/inbox/avaliador", label: "Avaliação de Contratos", icon: Inbox, roles: ["secretaria"] },
   { to: "/inbox/coordenador", label: "Fila de Pendências", icon: Inbox, roles: ["coordenador"] },
-  { to: "/alunos", label: "Gestão de Alunos", icon: Users, roles: ["secretaria"] },
+  { to: "/alunos", label: "Gestão de Alunos", icon: Users, roles: ["secretaria", "coordenador"] },
 ];
 
 export function AppShell({ children }: { children?: ReactNode }) {
@@ -59,10 +59,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
             className="mb-3 -mx-2 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-sidebar-accent transition-colors"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-              {user.username.slice(0, 2).toUpperCase()}
+              {(user.nome ?? user.username).slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium leading-tight truncate">{user.username}</p>
+              <p className="text-sm font-medium leading-tight truncate">{user.nome ?? user.username}</p>
               <p className="text-xs text-muted-foreground leading-tight capitalize truncate">{user.role}</p>
             </div>
           </Link>

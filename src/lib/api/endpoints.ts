@@ -12,6 +12,7 @@ import type {
   ProcessoDetail,
   Relatorio,
   StatusContrato,
+  UserMe,
   Veredito,
 } from "./types";
 
@@ -36,6 +37,8 @@ export const auth = {
       method: "POST",
       body: { refresh },
     }),
+
+  me: () => apiFetch<UserMe>("/auth/me/"),
 };
 
 // ── Alunos ───────────────────────────────────────────────────────────
