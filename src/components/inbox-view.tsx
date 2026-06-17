@@ -291,7 +291,7 @@ function ProcessoDetailPanel({
             {isSecretaria && contratoAtivo && (
               <Card className="p-6 border-primary/20 bg-primary/5">
                 <h3 className="font-display font-semibold mb-4 text-primary flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5" /> Dados Extraídos pelo Leitor de IA
+                  <CheckCircle2 className="h-5 w-5" /> Dados extraídos pelo sistema
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div className="space-y-2">
