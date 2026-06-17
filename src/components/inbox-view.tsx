@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+  import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/store/app-store";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
@@ -249,15 +249,20 @@ function ProcessoDetailPanel({
   const canEvalRelatorio = isCoordenador && relatorioAtivo &&
     (relatorioAtivo.status === "aguardando_validacao" || relatorioAtivo.status === "pendente") && allowAvaliacao;
 
+  // Reseta os campos quando o processo selecionado muda
   useEffect(() => {
+    setObservacoes("");
+    setJustificativa("");
+  }, [processo.id]);
+
+  // Pré-popula os campos com os dados do sistema após o carregamento
+  useEffect(() => {
+    if (detailLoading) return; // aguarda o carregamento terminar
     if (isSystemRejected && contratoAtivo?.historico) {
       setObservacoes(contratoAtivo.historico.observacoes || "");
       setJustificativa(contratoAtivo.historico.justificativa || "");
-    } else {
-      setObservacoes("");
-      setJustificativa("");
     }
-  }, [contratoAtivo, isSystemRejected]);
+  }, [detailLoading, isSystemRejected, contratoAtivo]);
 
   return (
     <>
