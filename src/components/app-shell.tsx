@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
-import { LayoutDashboard, Inbox, Users, LogOut, GraduationCap } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { LayoutDashboard, Inbox, Users, LogOut, PanelLeft } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 
@@ -18,6 +18,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const logout = useAppStore((s) => s.logout);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (!user) navigate({ to: "/" });
@@ -29,9 +30,34 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-sidebar">
-        <div className="flex items-center gap-2 px-6 py-5 border-b">
-          <img src="/logo.png" alt="IbIntern Logo" className="h-16 object-contain" />
+      <aside className={`hidden md:flex shrink-0 flex-col border-r bg-sidebar transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
+        <div className={`flex border-b transition-all duration-300 ${collapsed ? "flex-col items-center justify-center h-[100px] gap-2 px-0" : "h-[73px] items-center justify-between pl-6 pr-2"}`}>
+          {collapsed ? (
+            <>
+              <img src="/logo-barra-colapsada.png" alt="IbIntern Icon" className="h-8 w-8 object-contain animate-in fade-in duration-200" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCollapsed(!collapsed)}
+                title="Expandir menu"
+                className="h-8 w-8"
+              >
+                <PanelLeft className="h-5 w-5 text-foreground/85" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <img src="/logo.png" alt="IbIntern Logo" className="h-10 object-contain animate-in fade-in duration-200" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCollapsed(!collapsed)}
+                title="Recolher menu"
+              >
+                <PanelLeft className="h-5 w-5 text-foreground/85" />
+              </Button>
+            </>
+          )}
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {items.map((it) => {
@@ -41,43 +67,56 @@ export function AppShell({ children }: { children?: ReactNode }) {
               <Link
                 key={it.to}
                 to={it.to}
+                title={collapsed ? it.label : undefined}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  collapsed ? "justify-center" : ""
+                } ${
                   active
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                {it.label}
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span className="truncate">{it.label}</span>}
               </Link>
             );
           })}
         </nav>
-        <div className="border-t p-4">
+        <div className="border-t p-4 flex flex-col gap-2">
           <Link
             to="/perfil"
-            className="mb-3 -mx-2 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-sidebar-accent transition-colors"
+            title={collapsed ? (user.nome ?? user.username) : undefined}
+            className={`flex items-center gap-3 rounded-md p-2 hover:bg-sidebar-accent transition-colors ${
+              collapsed ? "justify-center" : ""
+            }`}
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
               {(user.nome ?? user.username).slice(0, 2).toUpperCase()}
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium leading-tight truncate">{user.nome ?? user.username}</p>
-              <p className="text-xs text-muted-foreground leading-tight capitalize truncate">{user.role}</p>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="text-sm font-medium leading-tight truncate">{user.nome ?? user.username}</p>
+                <p className="text-xs text-muted-foreground leading-tight capitalize truncate">{user.role}</p>
+              </div>
+            )}
           </Link>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { logout(); navigate({ to: "/" }); }}>
-            <LogOut className="h-4 w-4" /> Sair
+          <Button
+            variant="outline"
+            size="sm"
+            className={`w-full justify-start gap-2 ${collapsed ? "justify-center px-0" : ""}`}
+            onClick={() => { logout(); navigate({ to: "/" }); }}
+            title={collapsed ? "Sair" : undefined}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>Sair</span>}
           </Button>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden flex items-center justify-between border-b bg-card px-4 py-3">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="IbIntern Logo" className="h-12 object-contain" />
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => { logout(); navigate({ to: "/" }); }}>Sair</Button>
+        <header className="md:hidden relative flex items-center justify-center border-b bg-card h-16 px-4">
+          <img src="/logo.png" alt="IbIntern Logo" className="h-12 object-contain" />
+          <Button variant="ghost" size="sm" className="absolute right-4" onClick={() => { logout(); navigate({ to: "/" }); }}>Sair</Button>
         </header>
         <main className="flex-1 min-w-0">{children ?? <Outlet />}</main>
       </div>
