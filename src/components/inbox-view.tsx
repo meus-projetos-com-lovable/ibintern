@@ -243,8 +243,7 @@ function ProcessoDetailPanel({
 
   // Determine which evaluation is active
   const isSystemRejected = contratoAtivo?.status === "reprovado" && (
-    (contratoAtivo.historico?.observacoes?.includes("Reprovação Automática") ?? false) ||
-    (contratoAtivo.historico?.justificativa?.includes("Reprovação Automática") ?? false)
+    contratoAtivo.historico?.observacoes?.startsWith("Reprovação Automática pelo Sistema:") ?? false
   );
   const canEvalContrato = isSecretaria && contratoAtivo && (contratoAtivo.status === "pendente" || isSystemRejected) && allowAvaliacao;
   const canEvalRelatorio = isCoordenador && relatorioAtivo &&
