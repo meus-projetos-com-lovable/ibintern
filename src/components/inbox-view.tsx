@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/store/app-store";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
@@ -248,6 +248,16 @@ function ProcessoDetailPanel({
   const canEvalContrato = isSecretaria && contratoAtivo && (contratoAtivo.status === "pendente" || isSystemRejected) && allowAvaliacao;
   const canEvalRelatorio = isCoordenador && relatorioAtivo &&
     (relatorioAtivo.status === "aguardando_validacao" || relatorioAtivo.status === "pendente") && allowAvaliacao;
+
+  useEffect(() => {
+    if (isSystemRejected && contratoAtivo?.historico) {
+      setObservacoes(contratoAtivo.historico.observacoes || "");
+      setJustificativa(contratoAtivo.historico.justificativa || "");
+    } else {
+      setObservacoes("");
+      setJustificativa("");
+    }
+  }, [contratoAtivo, isSystemRejected]);
 
   return (
     <>
