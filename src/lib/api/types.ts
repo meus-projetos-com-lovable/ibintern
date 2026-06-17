@@ -119,6 +119,12 @@ export interface NestedRelatorio {
   historico: NestedHistoricoAvaliacao | null;
 }
 
+export interface HorarioSlot {
+  id?: number;
+  dia: string;
+  turno: string;
+}
+
 // ProcessoSerializer output (list view)
 export interface Processo {
   id: number;

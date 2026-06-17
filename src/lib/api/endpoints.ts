@@ -4,6 +4,7 @@ import type {
   Contrato,
   HistoricoAvaliacaoContrato,
   HistoricoAvaliacaoRelatorio,
+  HorarioSlot,
   LoginRequest,
   LoginResponse,
   PaginatedResponse,
@@ -179,5 +180,17 @@ export const relatorios = {
     apiFetch<Record<string, unknown>>(`/processo/${processoId}/relatorio/atualizar/`, {
       method: "PATCH",
       body: data,
+    }),
+};
+
+// ── Aluno Grade ──────────────────────────────────────────────────────
+// GET   /aluno/grade/    → obter grade do aluno
+// PATCH /aluno/grade/    → atualizar grade do aluno
+export const alunoGrade = {
+  obter: () => apiFetch<HorarioSlot[]>("/aluno/grade/"),
+  atualizar: (slots: { dia: string; turno: string }[]) =>
+    apiFetch<HorarioSlot[]>("/aluno/grade/", {
+      method: "PATCH",
+      body: slots,
     }),
 };
