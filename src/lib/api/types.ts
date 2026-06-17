@@ -95,9 +95,17 @@ export interface NestedHistoricoAvaliacao {
 export interface NestedContrato {
   id: number;
   nome_empresa: string | null;
+  cnpj_empresa?: string | null;
   data_upload: string;
+  data_inicio?: string | null;
+  data_termino?: string | null;
   status: StatusContrato;
   conflito_grade: boolean;
+  apolice_seguro?: string | null;
+  plano_atividade?: boolean;
+  assinatura_aluno?: boolean;
+  assinatura_empresa?: boolean;
+  assinatura_faculdade?: boolean;
   historico: NestedHistoricoAvaliacao | null;
 }
 
