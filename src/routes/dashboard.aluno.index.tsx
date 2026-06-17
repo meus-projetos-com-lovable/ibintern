@@ -28,21 +28,35 @@ export const Route = createFileRoute("/dashboard/aluno/")({
 /* ── Roadmap Steps ──────────────────────────────────────────────── */
 const ROADMAP_STEPS = [
   { key: "aberto", label: "Processo Aberto", icon: Clock },
-  { key: "pendente", label: "Contrato Pendente", icon: Upload },
+  { key: "contrato_pendente", label: "Contrato Pendente", icon: Upload },
   { key: "em_andamento", label: "Em Andamento", icon: CheckCircle2 },
+  { key: "relatorio_pendente", label: "Relatório Pendente", icon: FileText },
   { key: "concluido", label: "Concluído", icon: CheckCircle2 },
 ] as const;
 
-function getRoadmapIndex(status: string): number {
-  const map: Record<string, number> = {
-    aberto: 0,
-    pendente: 1,
-    em_andamento: 2,
-    reprovado: -1,
-    cancelado: -1,
-    concluido: 3,
-  };
-  return map[status] ?? 0;
+function getRoadmapIndex(processo: Processo, detalhe?: ProcessoDetail): number {
+  if (processo.status === "concluido") {
+    return 4;
+  }
+  if (processo.status === "em_andamento") {
+    if (detalhe && detalhe.relatorio && detalhe.relatorio.length > 0) {
+      return 3; // Relatório Pendente
+    }
+    return 2; // Em Andamento
+  }
+  if (processo.status === "aberto") {
+    if (detalhe && detalhe.contrato && detalhe.contrato.length > 0) {
+      return 1; // Contrato Pendente
+    }
+    return 0; // Processo Aberto
+  }
+  if (processo.status === "reprovado") {
+    return 1;
+  }
+  if (processo.status === "cancelado") {
+    return 3;
+  }
+  return 0;
 }
 
 function DashboardAluno() {
@@ -240,8 +254,13 @@ function ProcessoCard({ processo, onUploadContrato, onUploadRelatorio }: {
     queryFn: () => processosApi.detalhe(processo.id),
   });
 
-  const roadmapIdx = getRoadmapIndex(processo.status);
+  const roadmapIdx = getRoadmapIndex(processo, detalhe);
   const isReprovado = processo.status === "reprovado" || processo.status === "cancelado";
+
+  const ultimoContrato = detalhe?.contrato && detalhe.contrato.length > 0
+    ? detalhe.contrato[detalhe.contrato.length - 1]
+    : null;
+  const canUploadContrato = !ultimoContrato || ultimoContrato.status === "reprovado";
 
   return (
     <Card className="overflow-hidden">
@@ -374,7 +393,7 @@ function ProcessoCard({ processo, onUploadContrato, onUploadRelatorio }: {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2">
-          {(processo.status === "aberto" || processo.status === "reprovado") && (
+          {(processo.status === "aberto" || processo.status === "reprovado") && canUploadContrato && (
             <Button size="sm" variant="outline" className="gap-2" onClick={onUploadContrato}>
               <Upload className="h-3.5 w-3.5" /> Enviar Contrato
             </Button>
