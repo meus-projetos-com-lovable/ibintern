@@ -31,20 +31,22 @@ export function AppShell({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full bg-background">
       <aside className={`hidden md:flex shrink-0 flex-col border-r bg-sidebar transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
-        <div className={`flex border-b transition-all duration-300 ${collapsed ? "flex-col items-center justify-center h-[100px] gap-2 px-0" : "h-[73px] items-center justify-between pl-6 pr-2"}`}>
+        <div className={`flex border-b transition-all duration-300 ${collapsed ? "items-center justify-center h-[73px] px-0" : "h-[73px] items-center justify-between pl-6 pr-2"}`}>
           {collapsed ? (
-            <>
-              <img src="/logo-barra-colapsada.png" alt="IbIntern Icon" className="h-8 w-8 object-contain animate-in fade-in duration-200" />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setCollapsed(!collapsed)}
-                title="Expandir menu"
-                className="h-8 w-8"
-              >
-                <PanelLeft className="h-5 w-5 text-foreground/85" />
-              </Button>
-            </>
+            <button
+              onClick={() => setCollapsed(false)}
+              title="Expandir menu"
+              className="group relative flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-sidebar-accent"
+            >
+              {/* Ícone "i" — visível por padrão, some no hover */}
+              <img
+                src="/logo-barra-colapsada.png"
+                alt="IbIntern Icon"
+                className="h-7 w-7 object-contain transition-opacity duration-200 group-hover:opacity-0"
+              />
+              {/* PanelLeft — aparece no hover, sobreposto */}
+              <PanelLeft className="absolute h-5 w-5 text-foreground/80 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+            </button>
           ) : (
             <>
               <img src="/logo.png" alt="IbIntern Logo" className="h-10 object-contain animate-in fade-in duration-200" />
