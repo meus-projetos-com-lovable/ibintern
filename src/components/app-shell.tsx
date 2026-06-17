@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { LayoutDashboard, Inbox, Users, LogOut, PanelLeft } from "lucide-react";
+import { LayoutDashboard, Inbox, Users, LogOut, PanelLeft, PanelLeftOpen } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 
@@ -45,7 +45,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
                 className="h-7 w-7 object-contain transition-opacity duration-200 group-hover:opacity-0"
               />
               {/* PanelLeft — aparece no hover, sobreposto */}
-              <PanelLeft className="absolute h-5 w-5 text-foreground/80 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+              <PanelLeftOpen className="absolute h-5 w-5 text-foreground/80 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
             </button>
           ) : (
             <>
