@@ -15,6 +15,7 @@ import { Route as AlunosRouteImport } from './routes/alunos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InboxCoordenadorRouteImport } from './routes/inbox.coordenador'
 import { Route as InboxAvaliadorRouteImport } from './routes/inbox.avaliador'
+import { Route as DashboardCoordenadorRouteImport } from './routes/dashboard.coordenador'
 import { Route as DashboardAlunoRouteImport } from './routes/dashboard.aluno'
 import { Route as DashboardAlunoIndexRouteImport } from './routes/dashboard.aluno.index'
 import { Route as DashboardAlunoContratoProcessoIdRouteImport } from './routes/dashboard.aluno.contrato.$processoId'
@@ -50,6 +51,11 @@ const InboxAvaliadorRoute = InboxAvaliadorRouteImport.update({
   path: '/inbox/avaliador',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardCoordenadorRoute = DashboardCoordenadorRouteImport.update({
+  id: '/dashboard/coordenador',
+  path: '/dashboard/coordenador',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardAlunoRoute = DashboardAlunoRouteImport.update({
   id: '/dashboard/aluno',
   path: '/dashboard/aluno',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
   '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
+  '/dashboard/coordenador': typeof DashboardCoordenadorRoute
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
   '/dashboard/aluno/': typeof DashboardAlunoIndexRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/alunos': typeof AlunosRoute
   '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
+  '/dashboard/coordenador': typeof DashboardCoordenadorRoute
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
   '/dashboard/aluno': typeof DashboardAlunoIndexRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
   '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
+  '/dashboard/coordenador': typeof DashboardCoordenadorRoute
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
   '/dashboard/aluno/': typeof DashboardAlunoIndexRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/historico'
     | '/perfil'
     | '/dashboard/aluno'
+    | '/dashboard/coordenador'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
     | '/dashboard/aluno/'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/alunos'
     | '/historico'
     | '/perfil'
+    | '/dashboard/coordenador'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
     | '/dashboard/aluno'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/historico'
     | '/perfil'
     | '/dashboard/aluno'
+    | '/dashboard/coordenador'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
     | '/dashboard/aluno/'
@@ -153,6 +165,7 @@ export interface RootRouteChildren {
   HistoricoRoute: typeof HistoricoRoute
   PerfilRoute: typeof PerfilRoute
   DashboardAlunoRoute: typeof DashboardAlunoRouteWithChildren
+  DashboardCoordenadorRoute: typeof DashboardCoordenadorRoute
   InboxAvaliadorRoute: typeof InboxAvaliadorRoute
   InboxCoordenadorRoute: typeof InboxCoordenadorRoute
 }
@@ -199,6 +212,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox/avaliador'
       fullPath: '/inbox/avaliador'
       preLoaderRoute: typeof InboxAvaliadorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/coordenador': {
+      id: '/dashboard/coordenador'
+      path: '/dashboard/coordenador'
+      fullPath: '/dashboard/coordenador'
+      preLoaderRoute: typeof DashboardCoordenadorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/aluno': {
@@ -255,6 +275,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoricoRoute: HistoricoRoute,
   PerfilRoute: PerfilRoute,
   DashboardAlunoRoute: DashboardAlunoRouteWithChildren,
+  DashboardCoordenadorRoute: DashboardCoordenadorRoute,
   InboxAvaliadorRoute: InboxAvaliadorRoute,
   InboxCoordenadorRoute: InboxCoordenadorRoute,
 }
