@@ -106,7 +106,7 @@ export interface NestedContrato {
   assinatura_aluno?: boolean;
   assinatura_empresa?: boolean;
   assinatura_faculdade?: boolean;
-  historico: NestedHistoricoAvaliacao | null;
+  historico: NestedHistoricoAvaliacao[];
 }
 
 export interface NestedRelatorio {
@@ -116,7 +116,7 @@ export interface NestedRelatorio {
   fora_do_prazo: boolean;
   titulo: string | null;
   corpo: string | null;
-  historico: NestedHistoricoAvaliacao | null;
+  historico: NestedHistoricoAvaliacao[];
 }
 
 export interface HorarioSlot {
