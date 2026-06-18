@@ -194,6 +194,16 @@ function ProcessoDetailPanel({
   const contratoAtivo = detalhe?.contrato && detalhe.contrato.length > 0
     ? detalhe.contrato[detalhe.contrato.length - 1]
     : undefined;
+
+  const temDadosExtraidos = !!(
+    contratoAtivo && (
+      contratoAtivo.nome_empresa ||
+      contratoAtivo.cnpj_empresa ||
+      contratoAtivo.apolice_seguro ||
+      contratoAtivo.data_inicio ||
+      contratoAtivo.data_termino
+    )
+  );
   const { data: contratoUrl } = useQuery({
     queryKey: ["contratos", "download", contratoAtivo?.id],
     queryFn: () => contratosApi.download(contratoAtivo!.id),
@@ -365,7 +375,7 @@ function ProcessoDetailPanel({
             </Card>
 
             {/* Dados Extraídos pela IA */}
-            {isSecretaria && contratoAtivo && (
+            {isSecretaria && contratoAtivo && temDadosExtraidos && (
               <Card className="p-6 border-primary/20 bg-primary/5">
                 <h3 className="font-display font-semibold mb-4 text-primary flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5" /> Dados extraídos pelo sistema
