@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { LayoutDashboard, Inbox, Users, LogOut, PanelLeft, PanelLeftOpen } from "lucide-react";
+import { LayoutDashboard, Inbox, Users, LogOut, PanelLeft, PanelLeftOpen, History } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +11,7 @@ const NAV: NavItem[] = [
   { to: "/inbox/avaliador", label: "Avaliação de Contratos", icon: Inbox, roles: ["secretaria"] },
   { to: "/inbox/coordenador", label: "Fila de Pendências", icon: Inbox, roles: ["coordenador"] },
   { to: "/alunos", label: "Gestão de Alunos", icon: Users, roles: ["secretaria", "coordenador"] },
+  { to: "/historico", label: "Meu Histórico", icon: History, roles: ["secretaria", "coordenador"] },
 ];
 
 export function AppShell({ children }: { children?: ReactNode }) {

@@ -7,6 +7,7 @@ import type {
   HorarioSlot,
   LoginRequest,
   LoginResponse,
+  MeuHistoricoItem,
   PaginatedResponse,
   PrimeiroAcessoRequest,
   Processo,
@@ -181,6 +182,19 @@ export const relatorios = {
       method: "PATCH",
       body: data,
     }),
+};
+
+// ── Meu Histórico ────────────────────────────────────────────────────
+// GET    /meu-historico/?tipo=&veredito=  → MeuHistoricoItem[]
+
+export const meuHistorico = {
+  listar: (params?: { tipo?: string; veredito?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.tipo) searchParams.set("tipo", params.tipo);
+    if (params?.veredito) searchParams.set("veredito", params.veredito);
+    const qs = searchParams.toString();
+    return apiFetch<MeuHistoricoItem[]>(`/meu-historico/${qs ? `?${qs}` : ""}`);
+  },
 };
 
 // ── Aluno Grade ──────────────────────────────────────────────────────

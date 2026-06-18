@@ -222,3 +222,18 @@ export interface AlunoEmptyResponse {
   sugestao: string;
   resultados: [];
 }
+
+// ── Meu Histórico (timeline de avaliações do staff) ─────────────────
+
+export interface MeuHistoricoItem {
+  id_historico: number;
+  tipo_documento: "Contrato" | "Relatório";
+  documento_id: number;
+  nome_aluno: string;
+  nome_empresa: string;
+  data_avaliacao: string;
+  veredito: Veredito;
+  observacoes: string;
+  justificativa: string;
+}
+

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PerfilRouteImport } from './routes/perfil'
+import { Route as HistoricoRouteImport } from './routes/historico'
 import { Route as AlunosRouteImport } from './routes/alunos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InboxCoordenadorRouteImport } from './routes/inbox.coordenador'
@@ -22,6 +23,11 @@ import { Route as DashboardAlunoRelatorioProcessoIdRelatorioIdRouteImport } from
 const PerfilRoute = PerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoricoRoute = HistoricoRouteImport.update({
+  id: '/historico',
+  path: '/historico',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AlunosRoute = AlunosRouteImport.update({
@@ -70,6 +76,7 @@ const DashboardAlunoRelatorioProcessoIdRelatorioIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
   '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
   '/inbox/avaliador': typeof InboxAvaliadorRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
   '/inbox/avaliador': typeof InboxAvaliadorRoute
   '/inbox/coordenador': typeof InboxCoordenadorRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
   '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
   '/inbox/avaliador': typeof InboxAvaliadorRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/alunos'
+    | '/historico'
     | '/perfil'
     | '/dashboard/aluno'
     | '/inbox/avaliador'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/alunos'
+    | '/historico'
     | '/perfil'
     | '/inbox/avaliador'
     | '/inbox/coordenador'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/alunos'
+    | '/historico'
     | '/perfil'
     | '/dashboard/aluno'
     | '/inbox/avaliador'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlunosRoute: typeof AlunosRoute
+  HistoricoRoute: typeof HistoricoRoute
   PerfilRoute: typeof PerfilRoute
   DashboardAlunoRoute: typeof DashboardAlunoRouteWithChildren
   InboxAvaliadorRoute: typeof InboxAvaliadorRoute
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil'
       preLoaderRoute: typeof PerfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/historico': {
+      id: '/historico'
+      path: '/historico'
+      fullPath: '/historico'
+      preLoaderRoute: typeof HistoricoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alunos': {
@@ -232,6 +252,7 @@ const DashboardAlunoRouteWithChildren = DashboardAlunoRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlunosRoute: AlunosRoute,
+  HistoricoRoute: HistoricoRoute,
   PerfilRoute: PerfilRoute,
   DashboardAlunoRoute: DashboardAlunoRouteWithChildren,
   InboxAvaliadorRoute: InboxAvaliadorRoute,
