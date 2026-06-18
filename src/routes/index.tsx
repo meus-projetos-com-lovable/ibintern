@@ -20,17 +20,7 @@ export const Route = createFileRoute("/")(({
   component: LoginPage,
 }));
 
-/**
- * Decode JWT to extract user_id and groups for role detection.
- */
-function decodeJwt(token: string): Record<string, unknown> | null {
-  try {
-    const payload = atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(payload);
-  } catch {
-    return null;
-  }
-}
+
 
 function LoginPage() {
   const user = useAppStore((s) => s.user);
@@ -67,20 +57,27 @@ function LoginPage() {
     try {
       const res = await auth.login({ username, password });
 
-      // Decode JWT to get user info
-      const payload = decodeJwt(res.access);
-      const userId = (payload?.user_id as number) ?? 0;
+      // Fetch real user data (role, name, email) from /auth/me/
+      // We need to temporarily store tokens so the me() call is authenticated
+      const { setTokens } = await import("@/lib/api/client");
+      setTokens(res.access, res.refresh);
 
-      // We need to determine the role — we'll use a simple heuristic:
-      // Try to fetch /aluno/ first. If it fails with 403, user is an aluno.
-      // The backend assigns groups, so we try to fetch processos to detect role.
-      // For simplicity, we store basic info and let the app figure out role on first API call.
-      // The login response only gives us tokens, so we store what we can.
+      let me: { id: number; nome: string; email: string; matricula: string; role: string };
+      try {
+        me = await auth.me();
+      } catch {
+        // Fallback if /me/ fails — use basic info from JWT
+        me = { id: 0, nome: username, email: "", matricula: username, role: "ALUNO" };
+      }
+
+      const role = me.role.toLowerCase() as Role;
+
       const authUser = {
-        id: userId,
-        username,
-        email: "", // Will be filled when profile data loads
-        role: "aluno" as Role, // Default — will be corrected by API responses
+        id: me.id,
+        username: me.matricula,
+        nome: me.nome,
+        email: me.email,
+        role,
       };
 
       setAuth(authUser, res.access, res.refresh);
@@ -93,6 +90,41 @@ function LoginPage() {
         const message = err instanceof Error ? err.message : "Erro ao fazer login.";
         toast.error(message);
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loginRapido(matriculaRapida: string) {
+    setLoading(true);
+    try {
+      const res = await auth.login({ username: matriculaRapida, password: "senha123" });
+
+      const { setTokens } = await import("@/lib/api/client");
+      setTokens(res.access, res.refresh);
+
+      let me: { id: number; nome: string; email: string; matricula: string; role: string };
+      try {
+        me = await auth.me();
+      } catch {
+        me = { id: 0, nome: matriculaRapida, email: "", matricula: matriculaRapida, role: "ALUNO" };
+      }
+
+      const role = me.role.toLowerCase() as Role;
+
+      const authUser = {
+        id: me.id,
+        username: me.matricula,
+        nome: me.nome,
+        email: me.email,
+        role,
+      };
+
+      setAuth(authUser, res.access, res.refresh);
+      toast.success("Login rápido realizado com sucesso!");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro ao fazer login rápido.";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -133,7 +165,7 @@ function LoginPage() {
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       <div className="hidden lg:flex flex-col justify-between p-12 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="IbIntern Logo" className="h-10 object-contain brightness-0 invert" />
+          <img src="/logo.png" alt="IbIntern Logo" className="h-20 object-contain brightness-0 invert" />
         </div>
 
         <div className="max-w-md">
@@ -195,6 +227,45 @@ function LoginPage() {
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GraduationCap className="h-4 w-4" />}
                   Entrar
                 </Button>
+
+                <div className="relative flex py-2 items-center">
+                  <div className="flex-grow border-t border-muted" />
+                  <span className="flex-shrink mx-4 text-muted-foreground text-xs font-medium">Acesso rápido (Ambiente de Testes)</span>
+                  <div className="flex-grow border-t border-muted" />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => loginRapido("aluno01")}
+                    disabled={loading}
+                  >
+                    Aluno
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => loginRapido("sec01")}
+                    disabled={loading}
+                  >
+                    Secretaria
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => loginRapido("coord01")}
+                    disabled={loading}
+                  >
+                    Coordenação
+                  </Button>
+                </div>
               </form>
             </>
           ) : (

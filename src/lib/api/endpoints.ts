@@ -4,14 +4,17 @@ import type {
   Contrato,
   HistoricoAvaliacaoContrato,
   HistoricoAvaliacaoRelatorio,
+  HorarioSlot,
   LoginRequest,
   LoginResponse,
+  MeuHistoricoItem,
   PaginatedResponse,
   PrimeiroAcessoRequest,
   Processo,
   ProcessoDetail,
   Relatorio,
   StatusContrato,
+  UserMe,
   Veredito,
 } from "./types";
 
@@ -36,6 +39,8 @@ export const auth = {
       method: "POST",
       body: { refresh },
     }),
+
+  me: () => apiFetch<UserMe>("/auth/me/"),
 };
 
 // ── Alunos ───────────────────────────────────────────────────────────
@@ -176,5 +181,30 @@ export const relatorios = {
     apiFetch<Record<string, unknown>>(`/processo/${processoId}/relatorio/atualizar/`, {
       method: "PATCH",
       body: data,
+    }),
+};
+
+// ── Meu Histórico ────────────────────────────────────────────────────
+// GET    /meu-historico/?tipo=&veredito=  → MeuHistoricoItem[]
+
+export const meuHistorico = {
+  listar: (params?: { tipo?: string; veredito?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.tipo) searchParams.set("tipo", params.tipo);
+    if (params?.veredito) searchParams.set("veredito", params.veredito);
+    const qs = searchParams.toString();
+    return apiFetch<MeuHistoricoItem[]>(`/meu-historico/${qs ? `?${qs}` : ""}`);
+  },
+};
+
+// ── Aluno Grade ──────────────────────────────────────────────────────
+// GET   /aluno/grade/    → obter grade do aluno
+// PATCH /aluno/grade/    → atualizar grade do aluno
+export const alunoGrade = {
+  obter: () => apiFetch<HorarioSlot[]>("/aluno/grade/"),
+  atualizar: (slots: { dia: string; turno: string }[]) =>
+    apiFetch<HorarioSlot[]>("/aluno/grade/", {
+      method: "PATCH",
+      body: slots,
     }),
 };

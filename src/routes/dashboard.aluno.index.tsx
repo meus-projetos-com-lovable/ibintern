@@ -9,13 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DocumentDropzone } from "@/components/document-dropzone";
-import { FileText, Plus, Send, Loader2 } from "lucide-react";
+import { FileText, Plus, Send, Loader2, Upload, CheckCircle2, Clock, XCircle, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { processos as processosApi, contratos as contratosApi } from "@/lib/api/endpoints";
-import { STATUS_PROCESSO_LABEL, STATUS_CONTRATO_LABEL } from "@/lib/api/types";
+import { processos as processosApi, contratos as contratosApi, relatorios as relatoriosApi } from "@/lib/api/endpoints";
+import { STATUS_PROCESSO_LABEL, STATUS_CONTRATO_LABEL, STATUS_RELATORIO_LABEL } from "@/lib/api/types";
 import type { Processo, ProcessoDetail } from "@/lib/api/types";
+import { RoadmapTimeline } from "@/components/roadmap-timeline";
 
-export const Route = createFileRoute("/dashboard/aluno/")(({
+export const Route = createFileRoute("/dashboard/aluno/")({
   head: () => ({
     meta: [
       { title: "Painel do Aluno — Ibmec Estágios" },
@@ -23,14 +24,47 @@ export const Route = createFileRoute("/dashboard/aluno/")(({
     ],
   }),
   component: DashboardAluno,
-}));
+});
+
+/* ── Roadmap Steps ──────────────────────────────────────────────── */
+const ROADMAP_STEPS = [
+  { key: "aberto", label: "Processo Aberto", icon: Clock },
+  { key: "contrato_pendente", label: "Contrato Pendente", icon: Upload },
+  { key: "em_andamento", label: "Em Andamento", icon: CheckCircle2 },
+  { key: "relatorio_pendente", label: "Relatório Pendente", icon: FileText },
+  { key: "concluido", label: "Concluído", icon: CheckCircle2 },
+] as const;
+
+function getRoadmapIndex(processo: Processo, detalhe?: ProcessoDetail): number {
+  if (processo.status === "concluido") {
+    return 4;
+  }
+  if (processo.status === "em_andamento") {
+    if (detalhe && detalhe.relatorio && detalhe.relatorio.length > 0) {
+      return 3; // Relatório Pendente
+    }
+    return 2; // Em Andamento
+  }
+  if (processo.status === "aberto") {
+    if (detalhe && detalhe.contrato && detalhe.contrato.length > 0) {
+      return 1; // Contrato Pendente
+    }
+    return 0; // Processo Aberto
+  }
+  if (processo.status === "reprovado") {
+    return 1;
+  }
+  if (processo.status === "cancelado") {
+    return 3;
+  }
+  return 0;
+}
 
 function DashboardAluno() {
   const user = useAppStore((s) => s.user);
   const queryClient = useQueryClient();
 
   // Fetch all processos for the logged-in aluno
-  // The backend automatically filters by aluno when the user is not staff
   const { data: processosData, isLoading } = useQuery({
     queryKey: ["processos", "meus"],
     queryFn: () => processosApi.listar(),
@@ -39,27 +73,12 @@ function DashboardAluno() {
 
   const meus = processosData?.results ?? [];
 
-  // Fetch detail of the first (active) processo
-  const primeiroProcesso = meus[0];
-  const { data: ativoDetail } = useQuery({
-    queryKey: ["processos", "detalhe", primeiroProcesso?.matricula_aluno],
-    queryFn: () => {
-      // We need the processo ID — but list view doesn't return it directly.
-      // The NestedProcesso inside Aluno has ID, but ProcessoSerializer doesn't.
-      // We'll use the list endpoint and need the ID from somewhere.
-      // Actually, looking at ProcessoSerializer it doesn't return `id`.
-      // We'll need to use ProcessoDetailAPIView which needs the ID.
-      // For now, we show list data. Detail will be loaded from Aluno processos.
-      return null;
-    },
-    enabled: false, // Disabled until we have a way to get processo ID
-  });
-
   const [iniciarOpen, setIniciarOpen] = useState(false);
   const [empresa, setEmpresa] = useState("");
-  const [arquivo, setArquivo] = useState<File | null>(null);
   const [secretariaMatricula, setSecretariaMatricula] = useState("");
   const [coordenacaoMatricula, setCoordenacaoMatricula] = useState("");
+  const [uploadContratoOpen, setUploadContratoOpen] = useState<number | null>(null);
+  const [uploadRelatorioOpen, setUploadRelatorioOpen] = useState<number | null>(null);
 
   const iniciarProcesso = useMutation({
     mutationFn: (data: { nome_empresa: string; matricula_secretaria: string; matricula_coordenacao: string }) =>
@@ -69,7 +88,6 @@ function DashboardAluno() {
       toast.success("Processo criado com sucesso.");
       setIniciarOpen(false);
       setEmpresa("");
-      setArquivo(null);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -80,6 +98,18 @@ function DashboardAluno() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["processos"] });
       toast.success("Contrato enviado e secretaria notificada!");
+      setUploadContratoOpen(null);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const uploadRelatorio = useMutation({
+    mutationFn: (data: { processoId: number; arquivo: File }) =>
+      relatoriosApi.upload(data.processoId, data.arquivo),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["processos"] });
+      toast.success("Relatório enviado e coordenação notificada!");
+      setUploadRelatorioOpen(null);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -162,38 +192,321 @@ function DashboardAluno() {
         ) : (
           <div className="space-y-6">
             {meus.map((proc) => (
-              <Card key={`${proc.matricula_aluno}-${proc.nome_empresa}`} className="overflow-hidden">
-                <div className="p-6 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wider opacity-75">Estágio</p>
-                      <h2 className="font-display text-2xl font-medium mt-1">{proc.nome_empresa}</h2>
-                      <p className="text-sm opacity-85 mt-1">Aluno: {proc.matricula_aluno}</p>
-                    </div>
-                    <StatusBadge status={proc.status} />
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Secretaria</p>
-                      <p className="font-medium">{proc.matricula_secretaria}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Coordenação</p>
-                      <p className="font-medium">{proc.matricula_coordenacao}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Status</p>
-                      <p className="font-medium">{STATUS_PROCESSO_LABEL[proc.status] ?? proc.status}</p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+              <ProcessoCard
+                key={proc.id}
+                processo={proc}
+                onUploadContrato={() => setUploadContratoOpen(proc.id)}
+                onUploadRelatorio={() => setUploadRelatorioOpen(proc.id)}
+              />
             ))}
           </div>
         )}
+
+        {/* Upload Contrato Dialog */}
+        <Dialog open={uploadContratoOpen !== null} onOpenChange={() => setUploadContratoOpen(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Enviar Contrato (TCE)</DialogTitle></DialogHeader>
+            <DocumentDropzone
+              onFile={(file) => {
+                if (uploadContratoOpen !== null) {
+                  uploadContrato.mutate({ processoId: uploadContratoOpen, arquivo: file });
+                }
+              }}
+            />
+            {uploadContrato.isPending && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Enviando...
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Upload Relatório Dialog */}
+        <Dialog open={uploadRelatorioOpen !== null} onOpenChange={() => setUploadRelatorioOpen(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Enviar Relatório de Estágio</DialogTitle></DialogHeader>
+            <DocumentDropzone
+              onFile={(file) => {
+                if (uploadRelatorioOpen !== null) {
+                  uploadRelatorio.mutate({ processoId: uploadRelatorioOpen, arquivo: file });
+                }
+              }}
+            />
+            {uploadRelatorio.isPending && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Enviando...
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
+  );
+}
+
+/* ── Processo Card with Detail + Roadmap ─────────────────────── */
+function ProcessoCard({ processo, onUploadContrato, onUploadRelatorio }: {
+  processo: Processo;
+  onUploadContrato: () => void;
+  onUploadRelatorio: () => void;
+}) {
+  const [showHistorico, setShowHistorico] = useState(false);
+  const { data: detalhe } = useQuery({
+    queryKey: ["processos", "detalhe", processo.id],
+    queryFn: () => processosApi.detalhe(processo.id),
+  });
+
+  const roadmapIdx = getRoadmapIndex(processo, detalhe);
+  const isReprovado = processo.status === "reprovado" || processo.status === "cancelado";
+
+  const ultimoContrato = detalhe?.contrato && detalhe.contrato.length > 0
+    ? detalhe.contrato[detalhe.contrato.length - 1]
+    : null;
+  const canUploadContrato = !ultimoContrato || ultimoContrato.status === "reprovado";
+
+  const ultimoRelatorio = detalhe?.relatorio && detalhe.relatorio.length > 0
+    ? detalhe.relatorio[detalhe.relatorio.length - 1]
+    : null;
+  const canUploadRelatorio = !ultimoRelatorio || ultimoRelatorio.status === "reprovado";
+
+  return (
+    <Card className="overflow-hidden">
+      {/* Header */}
+      <div className="p-6 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wider opacity-75">Estágio</p>
+            <h2 className="font-display text-2xl font-medium mt-1">{processo.nome_empresa}</h2>
+            <p className="text-sm opacity-85 mt-1">Aluno: {processo.matricula_aluno}</p>
+          </div>
+          <StatusBadge status={processo.status} />
+        </div>
+      </div>
+
+      {/* Roadmap */}
+      <div className="px-6 py-4 border-b bg-card-alt/30">
+        <div className="flex items-center gap-1">
+          {ROADMAP_STEPS.map((step, idx) => {
+            const Icon = step.icon;
+            const done = !isReprovado && idx <= roadmapIdx;
+            const current = !isReprovado && idx === roadmapIdx;
+            return (
+              <div key={step.key} className="flex items-center gap-1 flex-1">
+                <div className={`flex items-center gap-1.5 text-xs font-medium ${
+                  done ? "text-primary" : isReprovado ? "text-destructive/50" : "text-muted-foreground/50"
+                }`}>
+                  <div className={`flex h-6 w-6 items-center justify-center rounded-full shrink-0 ${
+                    current ? "bg-primary text-primary-foreground" :
+                    done ? "bg-primary/15 text-primary" :
+                    "bg-muted text-muted-foreground/50"
+                  }`}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="hidden sm:inline whitespace-nowrap">{step.label}</span>
+                </div>
+                {idx < ROADMAP_STEPS.length - 1 && (
+                  <div className={`flex-1 h-0.5 mx-1 rounded-full ${
+                    done && idx < roadmapIdx ? "bg-primary" : "bg-muted"
+                  }`} />
+                )}
+              </div>
+            );
+          })}
+          {isReprovado && (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-destructive/15 text-destructive shrink-0">
+                <XCircle className="h-3.5 w-3.5" />
+              </div>
+              <span className="hidden sm:inline">{processo.status === "reprovado" ? "Reprovado" : "Cancelado"}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-6">
+        <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Secretaria</p>
+            <p className="font-medium">{processo.matricula_secretaria}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Coordenação</p>
+            <p className="font-medium">{processo.matricula_coordenacao}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Status</p>
+            <p className="font-medium">{STATUS_PROCESSO_LABEL[processo.status] ?? processo.status}</p>
+          </div>
+        </div>
+
+        {/* Contratos */}
+        {detalhe && detalhe.contrato.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Contratos</h4>
+            <div className="space-y-2">
+              {detalhe.contrato.map((c) => (
+                <Link
+                  key={c.id}
+                  to="/dashboard/aluno/contrato/$processoId"
+                  params={{ processoId: String(processo.id) }}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-primary/60" />
+                    <div>
+                      <p className="text-sm font-medium">{c.nome_empresa ?? processo.nome_empresa}</p>
+                      <p className="text-xs text-muted-foreground">{c.data_upload}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={c.status} />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Relatórios */}
+        {detalhe && detalhe.relatorio.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Relatórios</h4>
+            <div className="space-y-2">
+              {detalhe.relatorio.map((r, idx) => (
+                <Link
+                  key={r.id}
+                  to="/dashboard/aluno/relatorio/$processoId/$relatorioId"
+                  params={{ processoId: String(processo.id), relatorioId: String(idx) }}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-primary/60" />
+                    <div>
+                      <p className="text-sm font-medium">{r.titulo ?? `Relatório ${idx + 1}`}</p>
+                      <p className="text-xs text-muted-foreground">{r.data_upload}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={r.status} />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-2">
+          {(processo.status === "aberto" || processo.status === "reprovado") && canUploadContrato && (
+            <Button size="sm" variant="outline" className="gap-2" onClick={onUploadContrato}>
+              <Upload className="h-3.5 w-3.5" /> Enviar Contrato
+            </Button>
+          )}
+          {processo.status === "em_andamento" && canUploadRelatorio && (
+            <Button size="sm" variant="outline" className="gap-2" onClick={onUploadRelatorio}>
+              <Upload className="h-3.5 w-3.5" /> Enviar Relatório
+            </Button>
+          )}
+        </div>
+
+        {/* Histórico Geral do Processo (Roadmap) */}
+        {(() => {
+          const allEvaluations = [
+            ...(detalhe?.contrato ?? [])
+              .flatMap((c) => {
+                const evals = (c.historico ?? []).map((h) => ({
+                  id: h.id,
+                  type: "contrato" as const,
+                  title: `Contrato: ${c.nome_empresa ?? processo.nome_empresa}`,
+                  data_avaliacao: h.data_avaliacao,
+                  veredito: h.veredito,
+                  avaliador_nome: h.avaliador_nome,
+                  observacoes: h.observacoes,
+                  justificativa: h.justificativa,
+                }));
+                evals.push({
+                  id: -c.id,
+                  type: "contrato" as const,
+                  title: `Contrato: ${c.nome_empresa ?? processo.nome_empresa}`,
+                  data_avaliacao: c.data_upload ? new Date(c.data_upload).toISOString() : new Date().toISOString(),
+                  veredito: "sob_analise" as any,
+                  avaliador_nome: "Secretaria",
+                  observacoes: (c.status === "pendente" || c.status === "analise_sec")
+                    ? "O contrato foi enviado e está aguardando validação manual da Secretaria."
+                    : "O contrato foi enviado para análise.",
+                  justificativa: "",
+                });
+                if (c.status === "aprovado") {
+                  const approvalEval = c.historico?.find((h) => h.veredito === "aprovado");
+                  const baseDate = approvalEval?.data_avaliacao ?? (c.data_upload ? new Date(c.data_upload).toISOString() : new Date().toISOString());
+                  const emAndamentoDate = new Date(new Date(baseDate).getTime() + 1000).toISOString();
+                  evals.push({
+                    id: 100000 + c.id,
+                    type: "contrato" as const,
+                    title: "Em Andamento",
+                    data_avaliacao: emAndamentoDate,
+                    veredito: "aprovado" as any,
+                    avaliador_nome: approvalEval?.avaliador_nome ?? "Secretaria",
+                    observacoes: "O contrato foi homologado. O estágio agora está em andamento.",
+                    justificativa: "",
+                  });
+                }
+                return evals;
+              }),
+            ...(detalhe?.relatorio ?? [])
+              .flatMap((r, idx) => {
+                const evals = (r.historico ?? []).map((h) => ({
+                  id: h.id,
+                  type: "relatorio" as const,
+                  title: `Relatório: ${r.titulo ?? `Relatório ${idx + 1}`}`,
+                  data_avaliacao: h.data_avaliacao,
+                  veredito: h.veredito,
+                  avaliador_nome: h.avaliador_nome,
+                  observacoes: h.observacoes,
+                  justificativa: h.justificativa,
+                }));
+                const isPending = r.status === "aguardando_validacao" || r.status === "pendente" || r.status === "analise_coord";
+                evals.push({
+                  id: -r.id,
+                  type: "relatorio" as const,
+                  title: isPending ? "Análise Pendente de Relatório" : `Relatório Enviado: ${r.titulo ?? `Relatório ${idx + 1}`}`,
+                  data_avaliacao: r.data_upload ? new Date(r.data_upload).toISOString() : new Date().toISOString(),
+                  veredito: "sob_analise" as any,
+                  avaliador_nome: "Coordenação",
+                  observacoes: isPending
+                    ? "O relatório foi enviado e está aguardando validação da Coordenação."
+                    : "O relatório foi enviado para análise.",
+                  justificativa: "",
+                });
+                return evals;
+              }),
+          ].sort((a, b) => new Date(b.data_avaliacao).getTime() - new Date(a.data_avaliacao).getTime());
+
+          if (allEvaluations.length === 0) return null;
+
+          return (
+            <div className="mt-6 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setShowHistorico(!showHistorico)}
+                className="flex items-center justify-between w-full text-left font-display font-semibold text-sm text-foreground/90 py-2 hover:text-primary transition-colors"
+              >
+                <span>Histórico de Avaliações Geral ({allEvaluations.length})</span>
+                <span className="text-xs text-muted-foreground">{showHistorico ? "Ocultar" : "Visualizar"}</span>
+              </button>
+              
+              {showHistorico && (
+                <div className="mt-4 pt-2">
+                  <RoadmapTimeline items={allEvaluations} />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+    </Card>
   );
 }
