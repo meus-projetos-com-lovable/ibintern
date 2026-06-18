@@ -7,6 +7,7 @@ import { ArrowLeft, FileText, Download, Building2, Calendar, ShieldCheck, Loader
 import { processos as processosApi, contratos as contratosApi } from "@/lib/api/endpoints";
 import { STATUS_CONTRATO_LABEL } from "@/lib/api/types";
 import { toast } from "sonner";
+import { RoadmapTimeline } from "@/components/roadmap-timeline";
 
 export const Route = createFileRoute("/dashboard/aluno/contrato/$processoId")({
   head: () => ({
@@ -62,11 +63,39 @@ function ContratoDetalhe() {
     );
   }
 
-  const historico = contratoAtivo.historico;
+  const contractEvaluations = (processo.contrato ?? [])
+    .flatMap((c) => {
+      const evals = (c.historico ?? []).map((h) => ({
+        id: h.id,
+        type: "contrato" as const,
+        title: c.nome_empresa ?? processo.nome_empresa,
+        data_avaliacao: h.data_avaliacao,
+        veredito: h.veredito,
+        avaliador_nome: h.avaliador_nome,
+        observacoes: h.observacoes,
+        justificativa: h.justificativa,
+      }));
+
+      evals.push({
+        id: -c.id,
+        type: "contrato" as const,
+        title: c.nome_empresa ?? processo.nome_empresa,
+        data_avaliacao: c.data_upload ? new Date(c.data_upload).toISOString() : new Date().toISOString(),
+        veredito: "sob_analise" as any,
+        avaliador_nome: "Secretaria",
+        observacoes: (c.status === "pendente" || c.status === "analise_sec")
+          ? "O contrato foi enviado e está aguardando validação manual da Secretaria."
+          : "O contrato foi enviado para análise.",
+        justificativa: "",
+      });
+      return evals;
+    })
+    .sort((a, b) => new Date(b.data_avaliacao).getTime() - new Date(a.data_avaliacao).getTime());
+
   const temInformacoes =
     (contratoAtivo.status !== "pendente" && contratoAtivo.status !== "analise_sec") ||
     contratoAtivo.conflito_grade ||
-    !!historico;
+    contractEvaluations.length > 0;
 
   return (
     <AppShell>
@@ -102,7 +131,7 @@ function ContratoDetalhe() {
               )}
             </Card>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Contract Data */}
               <Card className="p-5">
                 <h3 className="font-display font-semibold mb-3">Informações</h3>
@@ -129,33 +158,14 @@ function ContratoDetalhe() {
                 </Button>
               )}
 
-              {/* Histórico de Avaliação */}
-              {historico && (
-                <Card className={`p-5 ${
-                  historico.veredito === "reprovado"
-                    ? "border-destructive/30 bg-destructive/5"
-                    : "border-green-500/30 bg-green-500/5"
-                }`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    {historico.veredito === "aprovado" ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-destructive" />
-                    )}
-                    <p className="font-medium text-sm capitalize">{historico.veredito}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    Avaliado por: {historico.avaliador_nome} · {new Date(historico.data_avaliacao).toLocaleDateString("pt-BR")}
-                  </p>
-                  <p className="text-sm text-foreground/80">{historico.observacoes}</p>
-                  {historico.justificativa && (
-                    <p className="text-sm text-foreground/70 mt-1 italic">Justificativa: {historico.justificativa}</p>
-                  )}
-                </Card>
-              )}
+              {/* Histórico de Avaliação em formato de Roadmap */}
+              <div className="space-y-3">
+                <h3 className="font-display font-semibold text-sm text-foreground/90 px-1">Histórico de Avaliações</h3>
+                <RoadmapTimeline items={contractEvaluations} emptyMessage="Nenhuma avaliação para este contrato ainda." />
+              </div>
 
               {/* Reprovado Alert (no historico) */}
-              {contratoAtivo.status === "reprovado" && !historico && (
+              {contratoAtivo.status === "reprovado" && (contratoAtivo.historico ?? []).length === 0 && (
                 <Card className="p-5 border-destructive/30 bg-destructive/5">
                   <p className="font-medium text-destructive flex items-center gap-2 text-sm">
                     <AlertTriangle className="h-4 w-4" /> Contrato reprovado

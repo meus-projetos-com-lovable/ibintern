@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { alunos as alunosApi, processos as processosApi } from "@/lib/api/endpoints";
 import type { Aluno, NestedProcesso } from "@/lib/api/types";
 import { STATUS_PROCESSO_LABEL } from "@/lib/api/types";
+import { RoadmapTimeline } from "@/components/roadmap-timeline";
 
 export const Route = createFileRoute("/alunos")({
   head: () => ({
@@ -90,6 +91,85 @@ function AlunosPage() {
   const [detalhesAluno, setDetalhesAluno] = useState<Aluno | null>(null);
   const [processosAluno, setProcessosAluno] = useState<NestedProcesso[]>([]);
   const [openProcessos, setOpenProcessos] = useState(false);
+
+  const [selectedProcessoId, setSelectedProcessoId] = useState<number | null>(null);
+
+  const { data: processoDetalhe, isLoading: loadingDetalhe } = useQuery({
+    queryKey: ["processos", "detalhe", selectedProcessoId],
+    queryFn: () => processosApi.detalhe(selectedProcessoId!),
+    enabled: selectedProcessoId !== null,
+  });
+
+  const allEvaluations = [
+    ...(processoDetalhe?.contrato ?? [])
+      .flatMap((c) => {
+        const evals = (c.historico ?? []).map((h) => ({
+          id: h.id,
+          type: "contrato" as const,
+          title: `Contrato: ${c.nome_empresa ?? processoDetalhe?.nome_empresa ?? ""}`,
+          data_avaliacao: h.data_avaliacao,
+          veredito: h.veredito,
+          avaliador_nome: h.avaliador_nome,
+          observacoes: h.observacoes,
+          justificativa: h.justificativa,
+        }));
+        evals.push({
+          id: -c.id,
+          type: "contrato" as const,
+          title: `Contrato: ${c.nome_empresa ?? processoDetalhe?.nome_empresa ?? ""}`,
+          data_avaliacao: c.data_upload ? new Date(c.data_upload).toISOString() : new Date().toISOString(),
+          veredito: "sob_analise" as any,
+          avaliador_nome: "Secretaria",
+          observacoes: (c.status === "pendente" || c.status === "analise_sec")
+            ? "O contrato foi enviado e está aguardando validação manual da Secretaria."
+            : "O contrato foi enviado para análise.",
+          justificativa: "",
+        });
+        if (c.status === "aprovado") {
+          const approvalEval = c.historico?.find((h) => h.veredito === "aprovado");
+          const baseDate = approvalEval?.data_avaliacao ?? (c.data_upload ? new Date(c.data_upload).toISOString() : new Date().toISOString());
+          const emAndamentoDate = new Date(new Date(baseDate).getTime() + 1000).toISOString();
+          evals.push({
+            id: 100000 + c.id,
+            type: "contrato" as const,
+            title: "Em Andamento",
+            data_avaliacao: emAndamentoDate,
+            veredito: "aprovado" as any,
+            avaliador_nome: approvalEval?.avaliador_nome ?? "Secretaria",
+            observacoes: "O contrato foi homologado. O estágio agora está em andamento.",
+            justificativa: "",
+          });
+        }
+        return evals;
+      }),
+    ...(processoDetalhe?.relatorio ?? [])
+      .flatMap((r, idx) => {
+        const evals = (r.historico ?? []).map((h) => ({
+          id: h.id,
+          type: "relatorio" as const,
+          title: `Relatório: ${r.titulo ?? `Relatório ${idx + 1}`}`,
+          data_avaliacao: h.data_avaliacao,
+          veredito: h.veredito,
+          avaliador_nome: h.avaliador_nome,
+          observacoes: h.observacoes,
+          justificativa: h.justificativa,
+        }));
+        const isPending = r.status === "aguardando_validacao" || r.status === "pendente" || r.status === "analise_coord";
+        evals.push({
+          id: -r.id,
+          type: "relatorio" as const,
+          title: isPending ? "Análise Pendente de Relatório" : `Relatório Enviado: ${r.titulo ?? `Relatório ${idx + 1}`}`,
+          data_avaliacao: r.data_upload ? new Date(r.data_upload).toISOString() : new Date().toISOString(),
+          veredito: "sob_analise" as any,
+          avaliador_nome: "Coordenação",
+          observacoes: isPending
+            ? "O relatório foi enviado e está aguardando validação da Coordenação."
+            : "O relatório foi enviado para análise.",
+          justificativa: "",
+        });
+        return evals;
+      }),
+  ].sort((a, b) => new Date(b.data_avaliacao).getTime() - new Date(a.data_avaliacao).getTime());
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -210,8 +290,20 @@ function AlunosPage() {
                             <DropdownMenuItem onClick={() => setDetalhesAluno(a)}>
                               <Eye className="mr-2 h-4 w-4" /> Ver detalhes do aluno
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setProcessosAluno(a.processos ?? []); setOpenProcessos(true); }}>
-                              <FileText className="mr-2 h-4 w-4" /> Ver processos do aluno
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const procs = a.processos ?? [];
+                                if (procs.length === 0) {
+                                  toast.error("Este aluno não possui processos de estágio.");
+                                } else if (procs.length === 1) {
+                                  setSelectedProcessoId(procs[0].id);
+                                } else {
+                                  setProcessosAluno(procs);
+                                  setOpenProcessos(true);
+                                }
+                              }}
+                            >
+                              <FileText className="mr-2 h-4 w-4" /> Detalhes do Processo
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -259,14 +351,61 @@ function AlunosPage() {
               {processosAluno.map((p) => (
                 <Card key={p.id} className="p-4 border">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-sm">{p.nome_empresa}</p>
-                    <span className="text-xs rounded-full border px-2 py-0.5 bg-muted text-muted-foreground">
-                      {STATUS_PROCESSO_LABEL[p.status] ?? p.status}
-                    </span>
+                    <div>
+                      <p className="font-medium text-sm">{p.nome_empresa}</p>
+                      <span className="text-xs rounded-full border px-2 py-0.5 bg-muted text-muted-foreground mt-1 inline-block">
+                        {STATUS_PROCESSO_LABEL[p.status] ?? p.status}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedProcessoId(p.id);
+                        setOpenProcessos(false);
+                      }}
+                    >
+                      Detalhes do Processo
+                    </Button>
                   </div>
                 </Card>
               ))}
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Detalhes do Processo */}
+      <Dialog open={selectedProcessoId !== null} onOpenChange={(open) => { if (!open) setSelectedProcessoId(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Processo de Estágio</DialogTitle>
+          </DialogHeader>
+          
+          {loadingDetalhe ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : processoDetalhe ? (
+            <div className="space-y-6 overflow-y-auto pr-1 text-sm py-2">
+              {/* Informações Gerais */}
+              <div className="grid grid-cols-2 gap-4">
+                <DetailRow label="Empresa" value={processoDetalhe.nome_empresa} />
+                <DetailRow label="Status" value={STATUS_PROCESSO_LABEL[processoDetalhe.status] ?? processoDetalhe.status} />
+                <DetailRow label="Aluno" value={processoDetalhe.aluno.nome} />
+                <DetailRow label="Matrícula" value={processoDetalhe.aluno.matricula} />
+                <DetailRow label="Secretaria" value={processoDetalhe.secretaria.nome} />
+                <DetailRow label="Coordenação" value={processoDetalhe.coordenacao.nome} />
+              </div>
+
+              {/* Histórico Geral do Processo (Roadmap) */}
+              <div className="border-t pt-4">
+                <h4 className="font-display font-semibold text-sm mb-3">Histórico de Avaliações Geral</h4>
+                <RoadmapTimeline items={allEvaluations} />
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-6">Erro ao carregar detalhes do processo.</p>
           )}
         </DialogContent>
       </Dialog>

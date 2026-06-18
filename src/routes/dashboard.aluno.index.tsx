@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { processos as processosApi, contratos as contratosApi, relatorios as relatoriosApi } from "@/lib/api/endpoints";
 import { STATUS_PROCESSO_LABEL, STATUS_CONTRATO_LABEL, STATUS_RELATORIO_LABEL } from "@/lib/api/types";
 import type { Processo, ProcessoDetail } from "@/lib/api/types";
+import { RoadmapTimeline } from "@/components/roadmap-timeline";
 
 export const Route = createFileRoute("/dashboard/aluno/")({
   head: () => ({
@@ -249,6 +250,7 @@ function ProcessoCard({ processo, onUploadContrato, onUploadRelatorio }: {
   onUploadContrato: () => void;
   onUploadRelatorio: () => void;
 }) {
+  const [showHistorico, setShowHistorico] = useState(false);
   const { data: detalhe } = useQuery({
     queryKey: ["processos", "detalhe", processo.id],
     queryFn: () => processosApi.detalhe(processo.id),
@@ -261,6 +263,11 @@ function ProcessoCard({ processo, onUploadContrato, onUploadRelatorio }: {
     ? detalhe.contrato[detalhe.contrato.length - 1]
     : null;
   const canUploadContrato = !ultimoContrato || ultimoContrato.status === "reprovado";
+
+  const ultimoRelatorio = detalhe?.relatorio && detalhe.relatorio.length > 0
+    ? detalhe.relatorio[detalhe.relatorio.length - 1]
+    : null;
+  const canUploadRelatorio = !ultimoRelatorio || ultimoRelatorio.status === "reprovado";
 
   return (
     <Card className="overflow-hidden">
@@ -398,12 +405,107 @@ function ProcessoCard({ processo, onUploadContrato, onUploadRelatorio }: {
               <Upload className="h-3.5 w-3.5" /> Enviar Contrato
             </Button>
           )}
-          {processo.status === "em_andamento" && (
+          {processo.status === "em_andamento" && canUploadRelatorio && (
             <Button size="sm" variant="outline" className="gap-2" onClick={onUploadRelatorio}>
               <Upload className="h-3.5 w-3.5" /> Enviar Relatório
             </Button>
           )}
         </div>
+
+        {/* Histórico Geral do Processo (Roadmap) */}
+        {(() => {
+          const allEvaluations = [
+            ...(detalhe?.contrato ?? [])
+              .flatMap((c) => {
+                const evals = (c.historico ?? []).map((h) => ({
+                  id: h.id,
+                  type: "contrato" as const,
+                  title: `Contrato: ${c.nome_empresa ?? processo.nome_empresa}`,
+                  data_avaliacao: h.data_avaliacao,
+                  veredito: h.veredito,
+                  avaliador_nome: h.avaliador_nome,
+                  observacoes: h.observacoes,
+                  justificativa: h.justificativa,
+                }));
+                evals.push({
+                  id: -c.id,
+                  type: "contrato" as const,
+                  title: `Contrato: ${c.nome_empresa ?? processo.nome_empresa}`,
+                  data_avaliacao: c.data_upload ? new Date(c.data_upload).toISOString() : new Date().toISOString(),
+                  veredito: "sob_analise" as any,
+                  avaliador_nome: "Secretaria",
+                  observacoes: (c.status === "pendente" || c.status === "analise_sec")
+                    ? "O contrato foi enviado e está aguardando validação manual da Secretaria."
+                    : "O contrato foi enviado para análise.",
+                  justificativa: "",
+                });
+                if (c.status === "aprovado") {
+                  const approvalEval = c.historico?.find((h) => h.veredito === "aprovado");
+                  const baseDate = approvalEval?.data_avaliacao ?? (c.data_upload ? new Date(c.data_upload).toISOString() : new Date().toISOString());
+                  const emAndamentoDate = new Date(new Date(baseDate).getTime() + 1000).toISOString();
+                  evals.push({
+                    id: 100000 + c.id,
+                    type: "contrato" as const,
+                    title: "Em Andamento",
+                    data_avaliacao: emAndamentoDate,
+                    veredito: "aprovado" as any,
+                    avaliador_nome: approvalEval?.avaliador_nome ?? "Secretaria",
+                    observacoes: "O contrato foi homologado. O estágio agora está em andamento.",
+                    justificativa: "",
+                  });
+                }
+                return evals;
+              }),
+            ...(detalhe?.relatorio ?? [])
+              .flatMap((r, idx) => {
+                const evals = (r.historico ?? []).map((h) => ({
+                  id: h.id,
+                  type: "relatorio" as const,
+                  title: `Relatório: ${r.titulo ?? `Relatório ${idx + 1}`}`,
+                  data_avaliacao: h.data_avaliacao,
+                  veredito: h.veredito,
+                  avaliador_nome: h.avaliador_nome,
+                  observacoes: h.observacoes,
+                  justificativa: h.justificativa,
+                }));
+                const isPending = r.status === "aguardando_validacao" || r.status === "pendente" || r.status === "analise_coord";
+                evals.push({
+                  id: -r.id,
+                  type: "relatorio" as const,
+                  title: isPending ? "Análise Pendente de Relatório" : `Relatório Enviado: ${r.titulo ?? `Relatório ${idx + 1}`}`,
+                  data_avaliacao: r.data_upload ? new Date(r.data_upload).toISOString() : new Date().toISOString(),
+                  veredito: "sob_analise" as any,
+                  avaliador_nome: "Coordenação",
+                  observacoes: isPending
+                    ? "O relatório foi enviado e está aguardando validação da Coordenação."
+                    : "O relatório foi enviado para análise.",
+                  justificativa: "",
+                });
+                return evals;
+              }),
+          ].sort((a, b) => new Date(b.data_avaliacao).getTime() - new Date(a.data_avaliacao).getTime());
+
+          if (allEvaluations.length === 0) return null;
+
+          return (
+            <div className="mt-6 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setShowHistorico(!showHistorico)}
+                className="flex items-center justify-between w-full text-left font-display font-semibold text-sm text-foreground/90 py-2 hover:text-primary transition-colors"
+              >
+                <span>Histórico de Avaliações Geral ({allEvaluations.length})</span>
+                <span className="text-xs text-muted-foreground">{showHistorico ? "Ocultar" : "Visualizar"}</span>
+              </button>
+              
+              {showHistorico && (
+                <div className="mt-4 pt-2">
+                  <RoadmapTimeline items={allEvaluations} />
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </Card>
   );

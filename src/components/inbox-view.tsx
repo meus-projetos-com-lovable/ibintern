@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { processos as processosApi, contratos as contratosApi, relatorios as relatoriosApi } from "@/lib/api/endpoints";
 import type { Processo, ProcessoDetail, StatusContrato } from "@/lib/api/types";
 import { STATUS_PROCESSO_LABEL } from "@/lib/api/types";
+import { RoadmapTimeline } from "@/components/roadmap-timeline";
 
 interface InboxViewProps {
   title: string;
@@ -243,11 +244,69 @@ function ProcessoDetailPanel({
 
   // Determine which evaluation is active
   const isSystemRejected = contratoAtivo?.status === "reprovado" && (
-    contratoAtivo.historico?.observacoes?.startsWith("Reprovação Automática pelo Sistema:") ?? false
+    contratoAtivo.historico?.some((h) => h.observacoes?.startsWith("Reprovação Automática pelo Sistema:")) ?? false
   );
   const canEvalContrato = isSecretaria && contratoAtivo && (contratoAtivo.status === "pendente" || isSystemRejected) && allowAvaliacao;
   const canEvalRelatorio = isCoordenador && relatorioAtivo &&
     (relatorioAtivo.status === "aguardando_validacao" || relatorioAtivo.status === "pendente") && allowAvaliacao;
+
+  const contractEvaluations = (detalhe?.contrato ?? [])
+    .flatMap((c) => {
+      const evals = (c.historico ?? []).map((h) => ({
+        id: h.id,
+        type: "contrato" as const,
+        title: c.nome_empresa ?? processo.nome_empresa,
+        data_avaliacao: h.data_avaliacao,
+        veredito: h.veredito,
+        avaliador_nome: h.avaliador_nome,
+        observacoes: h.observacoes,
+        justificativa: h.justificativa,
+      }));
+      evals.push({
+        id: -c.id,
+        type: "contrato" as const,
+        title: c.nome_empresa ?? processo.nome_empresa,
+        data_avaliacao: c.data_upload ? new Date(c.data_upload).toISOString() : new Date().toISOString(),
+        veredito: "sob_analise" as any,
+        avaliador_nome: "Secretaria",
+        observacoes: (c.status === "pendente" || c.status === "analise_sec")
+          ? "O contrato foi enviado e está aguardando validação manual da Secretaria."
+          : "O contrato foi enviado para análise.",
+        justificativa: "",
+      });
+      return evals;
+    })
+    .sort((a, b) => new Date(b.data_avaliacao).getTime() - new Date(a.data_avaliacao).getTime());
+
+  const allEvaluations = [
+    ...contractEvaluations,
+    ...(detalhe?.relatorio ?? [])
+      .flatMap((r, idx) => {
+        const evals = (r.historico ?? []).map((h) => ({
+          id: h.id,
+          type: "relatorio" as const,
+          title: `Relatório: ${r.titulo ?? `Relatório ${idx + 1}`}`,
+          data_avaliacao: h.data_avaliacao,
+          veredito: h.veredito,
+          avaliador_nome: h.avaliador_nome,
+          observacoes: h.observacoes,
+          justificativa: h.justificativa,
+        }));
+        evals.push({
+          id: -r.id,
+          type: "relatorio" as const,
+          title: `Relatório: ${r.titulo ?? `Relatório ${idx + 1}`}`,
+          data_avaliacao: r.data_upload ? new Date(r.data_upload).toISOString() : new Date().toISOString(),
+          veredito: "sob_analise" as any,
+          avaliador_nome: "Coordenação",
+          observacoes: (r.status === "aguardando_validacao" || r.status === "pendente" || r.status === "analise_coord")
+            ? "O relatório foi enviado e está aguardando validação da Coordenação."
+            : "O relatório foi enviado para análise.",
+          justificativa: "",
+        });
+        return evals;
+      }),
+  ].sort((a, b) => new Date(b.data_avaliacao).getTime() - new Date(a.data_avaliacao).getTime());
 
   // Reseta os campos quando o processo selecionado muda
   useEffect(() => {
@@ -259,8 +318,11 @@ function ProcessoDetailPanel({
   useEffect(() => {
     if (detailLoading) return; // aguarda o carregamento terminar
     if (isSystemRejected && contratoAtivo?.historico) {
-      setObservacoes(contratoAtivo.historico.observacoes || "");
-      setJustificativa(contratoAtivo.historico.justificativa || "");
+      const systemEval = contratoAtivo.historico.find((h) => h.observacoes?.startsWith("Reprovação Automática pelo Sistema:"));
+      if (systemEval) {
+        setObservacoes(systemEval.observacoes || "");
+        setJustificativa(systemEval.justificativa || "");
+      }
     }
   }, [detailLoading, isSystemRejected, contratoAtivo]);
 
@@ -347,6 +409,13 @@ function ProcessoDetailPanel({
                     </div>
                   </div>
                 )}
+              </Card>
+            )}
+
+            {isSecretaria && contratoAtivo && contractEvaluations.length > 0 && (
+              <Card className="p-6">
+                <h3 className="font-display font-semibold mb-4 text-foreground/90">Histórico de Avaliações do Contrato</h3>
+                <RoadmapTimeline items={contractEvaluations} emptyMessage="Nenhuma avaliação para este contrato ainda." />
               </Card>
             )}
 

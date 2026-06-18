@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell, PageHeader, StatusBadge } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText, Calendar, Clock, Loader2, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, FileText, Calendar, Clock, Loader2, AlertTriangle } from "lucide-react";
 import { processos as processosApi } from "@/lib/api/endpoints";
+import { RoadmapTimeline } from "@/components/roadmap-timeline";
 
 export const Route = createFileRoute("/dashboard/aluno/relatorio/$processoId/$relatorioId")({
   head: () => ({
@@ -52,7 +53,31 @@ function RelatorioDetalhe() {
     );
   }
 
-  const historico = relatorio.historico;
+  const relatorioEvaluations = (relatorio.historico ?? []).map((h) => ({
+    id: h.id,
+    type: "relatorio" as const,
+    title: relatorio.titulo ?? "Relatório de Estágio",
+    data_avaliacao: h.data_avaliacao,
+    veredito: h.veredito,
+    avaliador_nome: h.avaliador_nome,
+    observacoes: h.observacoes,
+    justificativa: h.justificativa,
+  }));
+
+  relatorioEvaluations.push({
+    id: -relatorio.id,
+    type: "relatorio" as const,
+    title: relatorio.titulo ?? "Relatório de Estágio",
+    data_avaliacao: relatorio.data_upload ? new Date(relatorio.data_upload).toISOString() : new Date().toISOString(),
+    veredito: "sob_analise" as any,
+    avaliador_nome: "Coordenação",
+    observacoes: (relatorio.status === "aguardando_validacao" || relatorio.status === "pendente" || relatorio.status === "analise_coord")
+      ? "O relatório foi enviado e está aguardando validação da Coordenação."
+      : "O relatório foi enviado para análise.",
+    justificativa: "",
+  });
+
+  relatorioEvaluations.sort((a, b) => new Date(b.data_avaliacao).getTime() - new Date(a.data_avaliacao).getTime());
 
   return (
     <AppShell>
@@ -100,33 +125,14 @@ function RelatorioDetalhe() {
               </dl>
             </Card>
 
-            {/* Histórico de Avaliação */}
-            {historico && (
-              <Card className={`p-5 ${
-                historico.veredito === "reprovado"
-                  ? "border-destructive/30 bg-destructive/5"
-                  : "border-green-500/30 bg-green-500/5"
-              }`}>
-                <div className="flex items-center gap-2 mb-2">
-                  {historico.veredito === "aprovado" ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-destructive" />
-                  )}
-                  <p className="font-medium text-sm capitalize">{historico.veredito}</p>
-                </div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Avaliado por: {historico.avaliador_nome} · {new Date(historico.data_avaliacao).toLocaleDateString("pt-BR")}
-                </p>
-                <p className="text-sm text-foreground/80">{historico.observacoes}</p>
-                {historico.justificativa && (
-                  <p className="text-sm text-foreground/70 mt-1 italic">Justificativa: {historico.justificativa}</p>
-                )}
-              </Card>
-            )}
+            {/* Histórico de Avaliação em formato de Roadmap */}
+            <div className="space-y-3">
+              <h3 className="font-display font-semibold text-sm text-foreground/90 px-1">Histórico de Avaliações</h3>
+              <RoadmapTimeline items={relatorioEvaluations} emptyMessage="Nenhuma avaliação para este relatório ainda." />
+            </div>
 
             {/* Reprovado Alert (no historico) */}
-            {relatorio.status === "reprovado" && !historico && (
+            {relatorio.status === "reprovado" && (relatorio.historico ?? []).length === 0 && (
               <Card className="p-5 border-destructive/30 bg-destructive/5">
                 <p className="font-medium text-destructive flex items-center gap-2 text-sm">
                   <AlertTriangle className="h-4 w-4" /> Relatório reprovado
