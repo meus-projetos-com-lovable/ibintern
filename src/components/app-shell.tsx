@@ -10,6 +10,7 @@ const NAV: NavItem[] = [
   { to: "/dashboard/aluno", label: "Meu Estágio", icon: LayoutDashboard, roles: ["aluno"] },
   { to: "/inbox/avaliador", label: "Avaliação de Contratos", icon: Inbox, roles: ["secretaria"] },
   { to: "/inbox/coordenador", label: "Fila de Pendências", icon: Inbox, roles: ["coordenador"] },
+  { to: "/dashboard-metabase", label: "Dashboard", icon: BarChart3, roles: ["secretaria", "coordenador"] },
   { to: "/alunos", label: "Gestão de Alunos", icon: Users, roles: ["secretaria", "coordenador"] },
   { to: "/historico", label: "Meu Histórico", icon: History, roles: ["secretaria", "coordenador"] },
   { to: "/dashboard/coordenador", label: "Dashboards", icon: BarChart3, roles: ["coordenador"] },

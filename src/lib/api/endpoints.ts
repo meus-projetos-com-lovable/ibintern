@@ -208,3 +208,9 @@ export const alunoGrade = {
       body: slots,
     }),
 };
+
+// ── Dashboard Metabase ───────────────────────────────────────────────
+// GET   /dashboard/metabase/    → { iframe_url: string }
+export const dashboard = {
+  metabase: () => apiFetch<{ iframe_url: string }>("/dashboard/metabase/"),
+};

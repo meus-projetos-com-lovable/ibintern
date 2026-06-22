@@ -24,6 +24,7 @@ export const Route = createFileRoute("/historico")({
 });
 
 function HistoricoPage() {
+  const user = useAppStore((state) => state.user);
   const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
   const [vereditoFiltro, setVereditoFiltro] = useState<string>("todos");
 
@@ -57,7 +58,9 @@ function HistoricoPage() {
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="contrato">Contrato</SelectItem>
-                <SelectItem value="relatorio">Relatório</SelectItem>
+                {user?.role !== "secretaria" && (
+                  <SelectItem value="relatorio">Relatório</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as HistoricoRouteImport } from './routes/historico'
+import { Route as DashboardMetabaseRouteImport } from './routes/dashboard-metabase'
 import { Route as AlunosRouteImport } from './routes/alunos'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InboxCoordenadorRouteImport } from './routes/inbox.coordenador'
@@ -29,6 +30,11 @@ const PerfilRoute = PerfilRouteImport.update({
 const HistoricoRoute = HistoricoRouteImport.update({
   id: '/historico',
   path: '/historico',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardMetabaseRoute = DashboardMetabaseRouteImport.update({
+  id: '/dashboard-metabase',
+  path: '/dashboard-metabase',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AlunosRoute = AlunosRouteImport.update({
@@ -82,6 +88,7 @@ const DashboardAlunoRelatorioProcessoIdRelatorioIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/dashboard-metabase': typeof DashboardMetabaseRoute
   '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
   '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
@@ -95,6 +102,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/dashboard-metabase': typeof DashboardMetabaseRoute
   '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
   '/dashboard/coordenador': typeof DashboardCoordenadorRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alunos': typeof AlunosRoute
+  '/dashboard-metabase': typeof DashboardMetabaseRoute
   '/historico': typeof HistoricoRoute
   '/perfil': typeof PerfilRoute
   '/dashboard/aluno': typeof DashboardAlunoRouteWithChildren
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/alunos'
+    | '/dashboard-metabase'
     | '/historico'
     | '/perfil'
     | '/dashboard/aluno'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/alunos'
+    | '/dashboard-metabase'
     | '/historico'
     | '/perfil'
     | '/dashboard/coordenador'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/alunos'
+    | '/dashboard-metabase'
     | '/historico'
     | '/perfil'
     | '/dashboard/aluno'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlunosRoute: typeof AlunosRoute
+  DashboardMetabaseRoute: typeof DashboardMetabaseRoute
   HistoricoRoute: typeof HistoricoRoute
   PerfilRoute: typeof PerfilRoute
   DashboardAlunoRoute: typeof DashboardAlunoRouteWithChildren
@@ -184,6 +197,13 @@ declare module '@tanstack/react-router' {
       path: '/historico'
       fullPath: '/historico'
       preLoaderRoute: typeof HistoricoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard-metabase': {
+      id: '/dashboard-metabase'
+      path: '/dashboard-metabase'
+      fullPath: '/dashboard-metabase'
+      preLoaderRoute: typeof DashboardMetabaseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alunos': {
@@ -272,6 +292,7 @@ const DashboardAlunoRouteWithChildren = DashboardAlunoRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlunosRoute: AlunosRoute,
+  DashboardMetabaseRoute: DashboardMetabaseRoute,
   HistoricoRoute: HistoricoRoute,
   PerfilRoute: PerfilRoute,
   DashboardAlunoRoute: DashboardAlunoRouteWithChildren,
